@@ -34,3 +34,12 @@ CREATE TABLE IF NOT EXISTS rate_limits (
 );
 
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS revoked boolean NOT NULL DEFAULT false;
+CREATE TABLE IF NOT EXISTS coding_buckets (
+ device_id uuid NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+ stream_id uuid NOT NULL, hour timestamptz NOT NULL,
+ provider text NOT NULL CHECK(provider IN ('claude','codex')),
+ tokens bigint NOT NULL CHECK(tokens BETWEEN 0 AND 1000000000),
+ work_seconds double precision NOT NULL CHECK(work_seconds BETWEEN 0 AND 864000),
+ PRIMARY KEY(device_id,stream_id,hour,provider)
+);
+CREATE INDEX IF NOT EXISTS coding_hour ON coding_buckets(hour);

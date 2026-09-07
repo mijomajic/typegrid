@@ -22,4 +22,4 @@ The root has no Sites metadata or Cloudflare runtime. The repository is compatib
 
 ## Release source installer
 
-After tagging `v0.1.2`, create `typegrid-source.tar.gz` with `git archive --prefix=typegrid/ v0.1.2`, generate `SHA256SUMS`, and upload both to the GitHub release. The one-line installer downloads those pinned assets and compiles with Apple’s Swift compiler. Checksums detect corruption, not compromise of the repository owner’s release account. This beta does not claim notarization, hardware-wide verification, or a signed auto-update channel.
+After tagging `v0.1.3`, create `typegrid-source.tar.gz` with `git archive --prefix=typegrid/ v0.1.3`, generate `SHA256SUMS`, and upload both to the GitHub release. The one-line installer downloads those pinned assets and compiles with Apple’s Swift compiler. Checksums detect corruption, not compromise of the repository owner’s release account. This beta does not claim notarization, hardware-wide verification, or a signed auto-update channel.

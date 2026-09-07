@@ -73,6 +73,8 @@ final class Agent: NSObject, NSApplicationDelegate {
     var statusText = "Waiting for activity"
     var isDev = false
     var config = loadConfig()
+    var codingAcknowledged: [String: Data] = [:]
+    var codingInFlight = false
     var acknowledged: [String: Bucket] = [:]
     var lastDevice: String?
     let devApps: Set<String> = ["com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92", "com.apple.dt.Xcode", "com.apple.Terminal", "com.googlecode.iterm2", "dev.warp.Warp-Stable", "com.sublimetext.4", "com.jetbrains.intellij", "com.jetbrains.pycharm", "com.jetbrains.WebStorm", "com.openai.codex", "com.mitchellh.ghostty"]
@@ -133,6 +135,35 @@ final class Agent: NSObject, NSApplicationDelegate {
         config = loadConfig()
         if config.deviceId != lastDevice { counter = Counter(); acknowledged = [:]; lastDevice = config.deviceId }
         appChanged(); counter.prune()
+        if !codingInFlight, let files = try? FileManager.default.contentsOfDirectory(at:root,includingPropertiesForKeys:nil) {
+            for file in files where file.lastPathComponent.hasPrefix("coding-") && file.pathExtension == "json" {
+                guard let streamId = UUID(uuidString:String(file.deletingPathExtension().lastPathComponent.dropFirst(7))), let data = try? Data(contentsOf:file), codingAcknowledged[file.lastPathComponent] != data, let codingQueue = try? JSONDecoder().decode(CodingQueue.self,from:data), codingQueue.deviceId == config.deviceId else { continue }
+                let buckets = codingQueue.buckets
+                struct CodingUpload: Encodable { let streamId:String; let buckets:[CodingBucket] }
+                let recent = buckets.filter { (ISO8601DateFormatter().date(from:$0.hour) ?? .distantPast) > Date().addingTimeInterval(-30*86400) }
+                if recent.isEmpty { try? FileManager.default.removeItem(at:file); continue }
+                codingInFlight=true
+                let snapshotConfig = config
+                DispatchQueue.global(qos:.utility).async { [weak self] in
+                    var succeeded = true
+                    for offset in stride(from:0,to:recent.count,by:48) {
+                        guard let payload = try? JSONEncoder().encode(CodingUpload(streamId:streamId.uuidString,buckets:Array(recent[offset..<min(offset+48,recent.count)]))) else { succeeded=false;break }
+                        let done=DispatchSemaphore(value:0)
+                        var ok=false
+                        request("/api/coding/ingest",config:snapshotConfig,body:payload) { result in
+                            if case .success = result { ok=true }; done.signal()
+                        }
+                        done.wait(); if !ok { succeeded=false;break }
+                    }
+                    let completed = succeeded
+                    DispatchQueue.main.async {
+                        self?.codingInFlight=false
+                        if completed { self?.codingAcknowledged[file.lastPathComponent]=data }
+                    }
+                }
+                break
+            }
+        }
         do { try save(counter.buckets, to: countersURL) } catch { statusText = "Cannot save counters. Check disk space." }
         let today = ISO8601DateFormatter().string(from: Date()).prefix(10)
         let total = counter.buckets.values.filter { $0.hour.hasPrefix(today) }.reduce(0) { $0 + $1.keystrokes }
@@ -181,6 +212,9 @@ func start() throws {
             switch command {
             case "is-paired": exit(loadConfig().token == nil ? 1 : 0)
             case "pair": try pair()
+            case "track":
+                guard CommandLine.arguments.count >= 3 else { throw NSError(domain:"TypeGrid",code:1,userInfo:[NSLocalizedDescriptionKey:"Use typegrid track claude or typegrid track codex."]) }
+                try trackCoding(CommandLine.arguments[2],arguments:Array(CommandLine.arguments.dropFirst(3)))
             case "run":
                 try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
                 let lock = open(root.appendingPathComponent("agent.lock").path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
@@ -190,8 +224,8 @@ func start() throws {
             case "start", "restart": try start()
             case "stop": _ = launch(["bootout", "gui/\(getuid())/dev.typegrid.agent"]); print("TypeGrid stopped. Run typegrid start to resume.")
             case "classify": var c = loadConfig(); c.classify = CommandLine.arguments.last != "off"; try save(c, to: configURL); print("App classification \(c.classify ? "on" : "off").")
-            case "status": let c = loadConfig(); print("TypeGrid 0.1.2\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
-            default: print("TypeGrid 0.1.2 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
+            case "status": let c = loadConfig(); print("TypeGrid 0.1.3\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
+            default: print("TypeGrid 0.1.3 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
             }
         } catch { fputs("TypeGrid: \(error.localizedDescription)\n", stderr); exit(1) }
     }

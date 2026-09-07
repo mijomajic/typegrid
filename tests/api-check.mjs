@@ -47,6 +47,35 @@ try {
     peakWpm: 28,
   };
   const auth = { Authorization: "Bearer " + device.token };
+  const coding = {
+    streamId: "11111111-1111-4111-8111-111111111111",
+    buckets: [
+      { hour: b.hour, provider: "claude", tokens: 1234, workSeconds: 42 },
+    ],
+  };
+  assert.equal((await call("coding/ingest", coding, "POST", auth)).status, 200);
+  assert.equal((await call("coding/ingest", coding, "POST", auth)).status, 200);
+  assert.equal(
+    (
+      await call(
+        "coding/ingest",
+        { ...coding, prompt: "rejected" },
+        "POST",
+        auth,
+      )
+    ).status,
+    400,
+  );
+  assert.equal(
+    (await call("coding", undefined, "GET")).data.rows[0].tokens,
+    1234,
+  );
+  assert.equal(
+    (await call("coding?username=local-test", undefined, "GET")).data.rows
+      .length,
+    0,
+  );
+
   assert.equal(
     (await call("ingest", { buckets: [b] }, "POST", auth)).status,
     200,
@@ -116,6 +145,17 @@ try {
     (await call("profile/LOCAL-TEST", undefined, "GET")).status,
     200,
   );
+  assert.equal(
+    (await call("coding?username=LOCAL-TEST", undefined, "GET")).data.rows[0]
+      .tokens,
+    1234,
+  );
+  assert.equal(
+    (
+      await call("leaderboard?period=all&metric=tokens", undefined, "GET")
+    ).data.rows.find((r) => r.username === "local-test").keystrokes,
+    1234,
+  );
   const savedProfile = (await call("me", undefined, "GET")).data.user;
   assert.equal(savedProfile.isPublic, true);
   assert.equal(savedProfile.bio, profile.bio);
@@ -159,6 +199,7 @@ try {
     (await call("ingest", { buckets: [] }, "POST", auth)).status,
     401,
   );
+  assert.equal((await call("coding/ingest", coding, "POST", auth)).status, 401);
   me = await call("me", undefined, "GET");
   assert.equal(
     me.data.buckets.reduce((n, b) => n + b.keystrokes, 0),

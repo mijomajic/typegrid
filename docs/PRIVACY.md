@@ -48,3 +48,7 @@ Aggregate timing is still personal data. The server receives frequent updates an
 Server aggregates remain until account deletion. Revoking a device stops new uploads but preserves historical stats. Account deletion cascades through sessions, devices, pairings and counters in the active database. Hosting backups may retain data under provider retention policies; we do not claim immediate erasure from every backup. Local uninstall preserves local data unless you delete its folder explicitly.
 
 No tracker can guarantee mathematically exact counts across hardware, permissions, Secure Input and crashes. TypeGrid is a personal stats toy, not a monitoring or forensic product. No event sequence is available for reconstruction, and TypeGrid never attempts reconstruction.
+
+## Optional coding activity
+
+When you launch Claude Code or Codex through TypeGrid, a local metrics-only receiver reduces documented counters to hourly token totals and work seconds. Provider credentials remain with the coding tool. No prompts or transcripts are stored or uploaded. Public profiles include AI totals. See [coding activity](CODING.md) for exact metric meanings and limitations.

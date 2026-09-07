@@ -5,8 +5,8 @@ Core keystroke tracking works without any of these integrations.
 | Tool        | Legitimate support                                                                                 | TypeGrid v0.1                                                                                              |
 | ----------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | GitHub      | OAuth authorization code + PKCE; public user REST API and public events                            | Sign-in plus public repository/follower counts and up to 100 recent public events; no retained OAuth token |
-| Claude Code | Opt-in OpenTelemetry metrics include token usage and cost; logs can include sensitive event fields | Researched, adapter not shipped                                                                            |
-| Codex       | Official configurable OpenTelemetry support, with version-dependent exporters and metric fields    | Researched, adapter not shipped; no account OAuth or transcript parsing                                    |
+| Claude Code | Opt-in OpenTelemetry metrics include token usage and cost; logs can include sensitive event fields | Local CLI launcher ships token + active-time metrics; see CODING.md                                                                            |
+| Codex       | Official configurable OpenTelemetry support, with version-dependent exporters and metric fields    | Local CLI launcher ships token + active-time metrics; see CODING.md; no account OAuth or transcript parsing                                    |
 | Gemini CLI  | OpenTelemetry metrics, logs and traces; token usage metrics available                              | Researched, metrics-only adapter not shipped                                                               |
 | Cursor      | Team Admin API offers usage/spend metrics with admin credentials                                   | Researched, unavailable to ordinary personal accounts through a general usage OAuth flow                   |
 
@@ -23,7 +23,9 @@ GitHub’s public events endpoint is an activity window, not a complete contribu
 - [Gemini CLI telemetry](https://geminicli.com/docs/cli/telemetry/)
 - [Cursor Admin API](https://cursor.com/docs/account/teams/admin-api)
 
-## Future adapter rules
+See [coding activity setup and limitations](CODING.md).
+
+## Adapter rules
 
 1. Explicit opt-in; never scan account cookies, private browser storage, or conversation files.
 2. A local receiver must accept only an allowlist of numeric metric names and safe categories. Drop all unrecognized attributes before persistence or network transmission.

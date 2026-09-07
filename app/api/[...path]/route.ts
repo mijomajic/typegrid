@@ -18,7 +18,7 @@ import {
   token,
   userBuckets,
 } from "@/lib/server";
-import { ingestSchema, profileSchema } from "@/lib/validation";
+import { ingestSchema, profileSchema, codingSchema } from "@/lib/validation";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 const json = (data: unknown, status = 200) =>
@@ -178,6 +178,24 @@ async function handler(
         devices: [],
       });
     }
+    if (path === "coding" && method === "GET") {
+      const name = url.searchParams.get("username");
+      const u = name
+        ? (
+            await db()`SELECT id FROM users WHERE username=${name.toLowerCase()} AND is_public=true`
+          )[0]
+        : await getUser();
+      if (!u) return json({ rows: [] });
+      const rows =
+        await db()`SELECT b.provider,SUM(b.tokens)::bigint AS tokens,SUM(b.work_seconds) AS seconds,MAX(b.hour) AS latest FROM coding_buckets b JOIN devices d ON d.id=b.device_id WHERE d.user_id=${u.id} GROUP BY b.provider`;
+      return json({
+        rows: rows.map((r) => ({
+          ...r,
+          tokens: Number(r.tokens),
+          seconds: Number(r.seconds),
+        })),
+      });
+    }
     if (path === "leaderboard" && method === "GET") {
       const period = url.searchParams.get("period") || "week";
       if (!["day", "week", "month", "all"].includes(period))
@@ -188,6 +206,17 @@ async function handler(
         start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
       if (period === "month") start.setUTCDate(1);
       if (period === "all") start.setTime(0);
+      if (url.searchParams.get("metric") === "tokens") {
+        const rows =
+          await db()`SELECT u.username,SUM(b.tokens)::bigint AS tokens FROM users u JOIN devices d ON d.user_id=u.id JOIN coding_buckets b ON b.device_id=d.id WHERE u.is_public=true AND b.hour>=${start.toISOString()} GROUP BY u.id HAVING SUM(b.tokens)>0 ORDER BY tokens DESC,u.username LIMIT 100`;
+        return json({
+          rows: rows.map((r) => ({
+            username: r.username,
+            keystrokes: Number(r.tokens),
+            level: null,
+          })),
+        });
+      }
       const rows =
         await db()`SELECT u.username, SUM(b.keystrokes) FILTER (WHERE b.hour>=${start.toISOString()})::bigint AS keystrokes, SUM(b.keystrokes)::bigint AS lifetime FROM users u JOIN devices d ON d.user_id=u.id JOIN buckets b ON b.device_id=d.id WHERE u.is_public=true GROUP BY u.id HAVING SUM(b.keystrokes) FILTER (WHERE b.hour>=${start.toISOString()})>0 ORDER BY keystrokes DESC,u.username LIMIT 100`;
       return json({
@@ -250,6 +279,16 @@ async function handler(
       });
       return json({ ok: true });
     }
+    if (path === "coding/ingest" && method === "POST") {
+      const d = await device(req),
+        payload = codingSchema.parse(await body(req));
+      await rate("coding:" + d.id, 60, 60);
+      await db().begin(async (tx) => {
+        for (const b of payload.buckets)
+          await tx`INSERT INTO coding_buckets(device_id,stream_id,hour,provider,tokens,work_seconds) VALUES(${d.id},${payload.streamId},${b.hour},${b.provider},${b.tokens},${b.workSeconds}) ON CONFLICT(device_id,stream_id,hour,provider) DO UPDATE SET tokens=GREATEST(coding_buckets.tokens,excluded.tokens),work_seconds=GREATEST(coding_buckets.work_seconds,excluded.work_seconds)`;
+      });
+      return json({ ok: true });
+    }
     // All remaining mutations require a browser session and matching Origin.
     const u = await requireUser();
     if (method !== "GET") checkOrigin(req);
@@ -299,13 +338,20 @@ async function handler(
       return json({ ok: true });
     }
     if (path === "export" && method === "GET") {
-      const [buckets, devices] = await Promise.all([
+      const [buckets, devices, coding] = await Promise.all([
         userBuckets(u.id),
         db()`SELECT id,name,last_seen FROM devices WHERE user_id=${u.id}`,
+        db()`SELECT b.hour,b.provider,SUM(b.tokens)::bigint AS tokens,SUM(b.work_seconds) AS seconds FROM coding_buckets b JOIN devices d ON d.id=b.device_id WHERE d.user_id=${u.id} GROUP BY b.hour,b.provider`,
       ]);
       return new NextResponse(
         JSON.stringify(
-          { profile: publicUser(u), buckets, devices, github: u.github_stats },
+          {
+            profile: publicUser(u),
+            buckets,
+            devices,
+            coding,
+            github: u.github_stats,
+          },
           null,
           2,
         ),

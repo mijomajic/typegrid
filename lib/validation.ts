@@ -49,3 +49,24 @@ export const profileSchema = z.strictObject({
     ),
   isPublic: z.boolean(),
 });
+
+export const codingSchema = z.strictObject({
+  streamId: z.uuid(),
+  buckets: z
+    .array(
+      z.strictObject({
+        hour: z.iso.datetime().refine((s) => {
+          const d = Date.parse(s);
+          return (
+            d % 3600000 === 0 &&
+            d >= Date.now() - 31 * 86400000 &&
+            d <= Date.now() + 3600000
+          );
+        }),
+        provider: z.enum(["claude", "codex"]),
+        tokens: z.number().int().min(0).max(1000000000),
+        workSeconds: z.number().min(0).max(864000),
+      }),
+    )
+    .max(48),
+});

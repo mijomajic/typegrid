@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { CodingStats, CodingConnections } from "./coding-stats";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowRightIcon,
@@ -566,6 +567,7 @@ export function TypeGrid({
                           </div>
                         ))}
                       </div>
+                      <CodingStats />
                       <Activity buckets={todayBuckets} />
                       <div className="two-col">
                         <section className="panel">
@@ -790,19 +792,8 @@ export function TypeGrid({
                       </a>
                     )}
                   </section>
+                  <CodingConnections />
                   {[
-                    [
-                      "Claude Code",
-                      "OpenTelemetry token and cost metrics. A metrics-only adapter is planned. Prompts, logs, and traces are excluded.",
-                      "METRICS API",
-                      "https://code.claude.com/docs/en/monitoring-usage",
-                    ],
-                    [
-                      "Codex",
-                      "Official OpenTelemetry is available. A privacy-filtered adapter needs validation before we ship it.",
-                      "RESEARCHED",
-                      "https://developers.openai.com/codex/config-advanced/",
-                    ],
                     [
                       "Gemini CLI",
                       "Official OpenTelemetry supports token metrics. A metrics-only local adapter is planned.",
@@ -894,6 +885,7 @@ export function TypeGrid({
                           <strong>{stats.level}</strong>
                         </div>
                       </div>
+                      <CodingStats username={username} />
                       <Heatmap days={stats.days} />
                       <div className="badge-row">
                         {achievements
@@ -1049,6 +1041,7 @@ function Heatmap({ days }: { days: Record<string, number> }) {
   );
 }
 function Leaderboard() {
+  const [metric, setMetric] = useState("keys");
   const [period, setPeriod] = useState("week"),
     [rows, setRows] = useState<
       { username: string; keystrokes: number; level: number }[]
@@ -1057,14 +1050,14 @@ function Leaderboard() {
     [busy, setBusy] = useState(true);
   useEffect(() => {
     setBusy(true);
-    api("leaderboard?period=" + period)
+    api("leaderboard?period=" + period + "&metric=" + metric)
       .then((d) => {
         setRows(d.rows);
         setError("");
       })
       .catch((e) => setError(e.message))
       .finally(() => setBusy(false));
-  }, [period]);
+  }, [period, metric]);
   return (
     <>
       <PageTitle
@@ -1072,6 +1065,21 @@ function Leaderboard() {
         title="Meet the high-frequency humans."
         text="Public profiles. Real counters. One connected community."
       />
+      <div className="tabs" role="group" aria-label="Leaderboard metric">
+        {[
+          ["keys", "Keystrokes"],
+          ["tokens", "AI tokens"],
+        ].map(([v, l]) => (
+          <button
+            key={v}
+            className={metric === v ? "selected" : ""}
+            aria-pressed={metric === v}
+            onClick={() => setMetric(v)}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
       <div className="tabs" role="group" aria-label="Leaderboard period">
         {[
           ["day", "Today"],
@@ -1093,7 +1101,7 @@ function Leaderboard() {
         <div className="leader-row table-head">
           <span>RANK</span>
           <span>DEVELOPER</span>
-          <span>KEYSTROKES</span>
+          <span>{metric === "tokens" ? "AI TOKENS" : "KEYSTROKES"}</span>
           <span>LEVEL</span>
         </div>
         {error ? (
@@ -1115,7 +1123,7 @@ function Leaderboard() {
                 {r.username}
               </span>
               <strong className="mono">{fmt(r.keystrokes)}</strong>
-              <span className="mono">{r.level}</span>
+              <span className="mono">{r.level ?? "—"}</span>
             </Link>
           ))
         ) : (
@@ -1350,7 +1358,7 @@ function Privacy() {
         ],
         [
           "GitHub and AI tools",
-          "GitHub sign-in uses the public identity scope. We discard the GitHub token after sign-in; public contribution data can be refreshed separately. AI connections are researched but not enabled in this release. We do not ingest AI prompts, transcripts, raw telemetry logs, or account cookies.",
+          "GitHub sign-in uses the public identity scope. We discard the GitHub token after sign-in; public contribution data can be refreshed separately. Optional Claude Code and Codex CLI launchers collect aggregate tokens and work time locally. Public profiles include AI totals. We do not ingest AI prompts, transcripts, raw telemetry logs, or account cookies.",
         ],
       ].map(([h, p]) => (
         <section key={h}>
