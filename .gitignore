@@ -9,3 +9,4 @@ agent/.build/
 agent/dist/
 .wrangler/
 .firecrawl/
+.env*.local
