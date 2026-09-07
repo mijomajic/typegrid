@@ -2,11 +2,11 @@
 
 Core keystroke tracking works without any of these integrations.
 
-| Tool        | Legitimate support                                                                                 | TypeGrid v0.1                                                                                              |
+| Tool        | Legitimate support                                                                                 | TypeGrid v0.1.4                                                                                              |
 | ----------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | GitHub      | OAuth authorization code + PKCE; public user REST API and public events                            | Sign-in plus public repository/follower counts and up to 100 recent public events; no retained OAuth token |
-| Claude Code | Opt-in OpenTelemetry metrics include token usage and cost; logs can include sensitive event fields | Local CLI launcher ships token + active-time metrics; see CODING.md                                                                            |
-| Codex       | Official configurable OpenTelemetry support, with version-dependent exporters and metric fields    | Local CLI launcher ships token + active-time metrics; see CODING.md; no account OAuth or transcript parsing                                    |
+| Claude Code | Opt-in OpenTelemetry metrics include token usage and cost; logs can include sensitive event fields | Background Mac receiver collects tokens and active time; see CODING.md                                                                            |
+| Codex       | Official configurable OpenTelemetry support, with version-dependent exporters and metric fields    | Background Mac receiver collects tokens and active time; see CODING.md; no account OAuth or transcript parsing                                    |
 | Gemini CLI  | OpenTelemetry metrics, logs and traces; token usage metrics available                              | Researched, metrics-only adapter not shipped                                                               |
 | Cursor      | Team Admin API offers usage/spend metrics with admin credentials                                   | Researched, unavailable to ordinary personal accounts through a general usage OAuth flow                   |
 

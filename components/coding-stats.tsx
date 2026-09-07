@@ -53,7 +53,6 @@ export function CodingStats({ username }: { username?: string }) {
   );
 }
 export function CodingConnections() {
-  const [copied, setCopied] = useState("");
   return (
     <>
       {["claude", "codex"].map((provider) => (
@@ -64,34 +63,26 @@ export function CodingConnections() {
           <div>
             <h3>
               {provider === "claude" ? "Claude Code" : "Codex"}{" "}
-              <span className="tag">LOCAL CONNECTION</span>
+              <span className="tag">MAC CONNECTION</span>
             </h3>
             <p>
-              Tokens and{" "}
-              {provider === "claude" ? "active time" : "turn duration"} from new
-              CLI sessions. Your normal tool sign-in stays on your Mac.
+              Connect once. Use your coding tool normally. TypeGrid collects
+              tokens and {provider === "claude" ? "active time" : "turn time"}{" "}
+              in the background.
             </p>
-            <div className="command">
-              <code>~/.local/bin/typegrid track {provider}</code>
-              <button
-                className="button small"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(
-                      "~/.local/bin/typegrid track " + provider,
-                    );
-                    setCopied(provider);
-                  } catch {
-                    setCopied("");
-                  }
-                }}
-              >
-                {copied === provider ? "Copied" : "Copy command"}
-              </button>
-            </div>
             <p className="muted">
-              Run this instead of {provider}. Stop using the launcher to
-              disconnect. Requires TypeGrid 0.1.3.
+              Restart {provider === "claude" ? "Claude Code" : "Codex"} once
+              after connecting. No tracker terminal needed. Requires TypeGrid
+              0.1.4.
+            </p>
+            <a className="button" href={"typegrid://connect/" + provider}>
+              Connect on Mac
+            </a>
+            <p className="muted">
+              Your existing sign-in stays in the coding tool.{" "}
+              {provider === "codex"
+                ? "Uses the shared Codex configuration; desktop coverage depends on the app’s metrics exporter."
+                : "Connects new Claude Code sessions using your user settings."}
             </p>
           </div>
         </section>

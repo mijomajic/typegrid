@@ -44,7 +44,7 @@ Offline counters remain in `~/Library/Application Support/TypeGrid/counters.json
 
 ## Uninstall
 
-From a clone: `sh scripts/uninstall.sh`. Or manually:
+Disconnect coding tools in the TypeGrid menu first to remove its exporter configuration. Then, from a clone: `sh scripts/uninstall.sh`. Or manually:
 
 ```sh
 launchctl bootout "gui/$(id -u)/dev.typegrid.agent"

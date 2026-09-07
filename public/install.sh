@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-VERSION=0.1.3
+VERSION=0.1.4
 RELEASE="https://github.com/mijomajic/typegrid/releases/download/v$VERSION"
 if [ "$(uname -s)" != Darwin ]; then
   echo 'TypeGrid currently supports macOS 13+ only. Linux and Windows ports are welcome.' >&2; exit 1

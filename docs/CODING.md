@@ -1,16 +1,26 @@
 # Coding activity
 
-TypeGrid 0.1.3 adds a local connection for **Claude Code and Codex CLI**. Sign in inside the coding tool as usual, including with a supported subscription. TypeGrid never requests or stores that provider's credentials.
+TypeGrid 0.1.4 collects coding metrics inside the background Mac app. **No tracker terminal is required.**
 
-After installing/upgrading TypeGrid and pairing your Mac, launch a new session with:
+1. Install or upgrade TypeGrid, then pair your Mac.
+2. Open Integrations on typegrid.dev and click **Connect on Mac**, or use Connect Codex / Connect Claude Code in the TypeGrid menu.
+3. Confirm the local setup and restart the coding tool once. Use it normally after that.
+
+The setup configures a metrics-only exporter in your user-level `~/.codex/config.toml` or `~/.claude/settings.json`. Existing unrelated settings are preserved. A conflicting telemetry configuration is left untouched with an error instead of being silently replaced. Provider sign-in remains inside the coding tool; TypeGrid never requests its credentials.
+
+The collector runs with TypeGrid at login. Closing Terminal does not stop it. Quitting TypeGrid stops collection until it is reopened. Disconnect through the TypeGrid menu, then restart the coding tool once. Previously synced stats are retained.
+
+Command-line setup is also available, and returns immediately:
 
 ```sh
-~/.local/bin/typegrid track claude
-# or
-~/.local/bin/typegrid track codex
+~/.local/bin/typegrid connect codex
+~/.local/bin/typegrid connect claude
+# Undo only TypeGrid-owned settings:
+~/.local/bin/typegrid disconnect codex
+~/.local/bin/typegrid disconnect claude
 ```
 
-Arguments are passed to the tool. Existing sessions, IDE extensions, and Codex desktop sessions are not retroactively connected. The TypeGrid background agent must be running to upload aggregates. Close the tracked session and launch the tool normally to disconnect. No provider config files are modified.
+Codex desktop and CLI use the global Codex configuration; clients that override exporters or use a different configuration directory may not report. Existing desktop processes need a restart. A fresh model-completion export from the desktop app has not yet been verified on the development Mac; the local receiver and configuration are verified independently. Claude Code connects sessions that read its user settings. No historical transcript import is performed.
 
 ## What counts
 
@@ -22,13 +32,13 @@ Arguments are passed to the tool. Existing sessions, IDE extensions, and Codex d
 
 ## Privacy and operation
 
-The launcher starts a temporary receiver bound to **127.0.0.1 on a random port**, protected by a per-launch random authorization value. Only `/v1/metrics` with JSON and a bounded Content-Length is accepted. Logs and traces are disabled in the launcher. Unknown metric names, identities, resources, prompts, paths, tool details, and attributes are discarded. Only Codex's fixed `token_type` category is interpreted.
+The Mac agent starts receivers bound to **127.0.0.1 on ports 43189 (Codex) and 43190 (Claude)**, protected by a per-install random authorization value. Only `/v1/metrics` with JSON and a bounded Content-Length is accepted. TypeGrid configures logs and traces off. Unknown metric names, identities, resources, prompts, paths, tool details, and attributes are discarded. Only Codex's fixed `token_type` category is interpreted.
 
-Only cumulative metrics are supported; delta temporality is ignored to avoid counting replays twice. Cumulative snapshots are reduced to increases and grouped by UTC hour of receipt. Cached tokens are included; totals are not equivalent to fresh generated tokens. Late exports are attributed to the hour received. Provider versions with different names/temporality may show no stats.
+Cumulative metric checkpoints survive TypeGrid restarts. Only cumulative metrics are supported; delta temporality is ignored to avoid counting replays twice. Cumulative snapshots are reduced to increases and grouped by UTC hour of receipt. Cached tokens are included; totals are not equivalent to fresh generated tokens. Late exports are attributed to the hour received. Provider versions with different names/temporality may show no stats.
 
 Local queue files contain only a TypeGrid device ID, provider, hour, token count, and work seconds. They are mode 0600 and bound to the pairing that created them. Queues retain at most 30 days of hourly data. Uploads retry idempotently; the server uses maximum counters per random local stream. No transcript file is opened. AI totals are private unless the profile is public. Account deletion cascades to AI counters; export includes them.
 
-Validated: native parser fixtures, repeated/out-of-order payloads, both CLI launchers, Codex configuration initialization, HTTP API privacy/revocation/public ranking. A real model-completion export has not yet been verified on this Mac; no synthetic usage is added to your profile.
+Validated: native parser fixtures, repeated/out-of-order payloads, both CLI launchers, Codex configuration initialization, background receiver HTTP checks, HTTP API privacy/revocation/public ranking. A real model-completion export has not yet been verified on this Mac; no synthetic usage is added to your profile.
 
 ## Other providers
 

@@ -3,6 +3,7 @@ import ApplicationServices
 import Foundation
 import GridCore
 import Darwin
+import Network
 
 let root = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/TypeGrid", isDirectory: true)
 let configURL = root.appendingPathComponent("config.json")
@@ -12,6 +13,10 @@ struct Config: Codable {
     var token: String? = nil
     var deviceId: String? = nil
     var classify = true
+    var codingSecret:String? = nil
+    var codingProviders:[String]? = nil
+    var codexStream:String? = nil
+    var claudeStream:String? = nil
 }
 func save<T: Encodable>(_ object: T, to url: URL) throws {
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -68,6 +73,7 @@ final class Agent: NSObject, NSApplicationDelegate {
     var tap: CFMachPort?
     var status: NSStatusItem!
     var timer: Timer?
+    var codingListeners:[String:NWListener] = [:]
     var paused = false
     var inFlight = false
     var statusText = "Waiting for activity"
@@ -80,6 +86,7 @@ final class Agent: NSObject, NSApplicationDelegate {
     let devApps: Set<String> = ["com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92", "com.apple.dt.Xcode", "com.apple.Terminal", "com.googlecode.iterm2", "dev.warp.Warp-Stable", "com.sublimetext.4", "com.jetbrains.intellij", "com.jetbrains.pycharm", "com.jetbrains.WebStorm", "com.openai.codex", "com.mitchellh.ghostty"]
     func applicationDidFinishLaunching(_ notification: Notification) {
         lastDevice = config.deviceId
+        startCodingListeners()
         if let data = try? Data(contentsOf: countersURL), let buckets = try? JSONDecoder().decode([String: Bucket].self, from: data) { counter = Counter(buckets: buckets) }
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         let icon = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
@@ -97,6 +104,10 @@ final class Agent: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(withTitle: "TypeGrid · starting", action: nil, keyEquivalent: "")
         menu.addItem(.separator())
+        menu.addItem(withTitle:"Connect Codex",action:#selector(connectCodex),keyEquivalent:"")
+        menu.addItem(withTitle:"Connect Claude Code",action:#selector(connectClaude),keyEquivalent:"")
+        menu.addItem(withTitle:"Disconnect Codex",action:#selector(disconnectCodex),keyEquivalent:"")
+        menu.addItem(withTitle:"Disconnect Claude Code",action:#selector(disconnectClaude),keyEquivalent:"")
         menu.addItem(withTitle: "Open dashboard", action: #selector(dashboard), keyEquivalent: "")
         menu.addItem(withTitle: "Pause / resume", action: #selector(toggle), keyEquivalent: "")
         menu.addItem(withTitle: "Quit TypeGrid", action: #selector(quit), keyEquivalent: "")
@@ -105,6 +116,33 @@ final class Agent: NSObject, NSApplicationDelegate {
         appChanged()
         installTap()
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.tick() }
+    }
+    func startCodingListeners() {
+        let c=loadConfig()
+        for provider in ["codex","claude"] {
+            if c.codingProviders?.contains(provider) != true { codingListeners.removeValue(forKey:provider)?.cancel();continue }
+            guard codingListeners[provider] == nil, let secret=c.codingSecret else {continue}
+            do {codingListeners[provider]=try startCodingReceiver(provider,secret:secret,portNumber:provider == "codex" ? 43189 : 43190,persistent:true)}
+            catch {statusText="Coding receiver could not start. Check ports 43189/43190."}
+        }
+    }
+    @objc func disconnectCodex(){try? configureCoding("codex",disconnect:true);startCodingListeners()}
+    @objc func disconnectClaude(){try? configureCoding("claude",disconnect:true);startCodingListeners()}
+    @objc func connectCodex(){ connectProvider("codex") }
+    @objc func connectClaude(){ connectProvider("claude") }
+    func connectProvider(_ provider:String) {
+        let alert=NSAlert();alert.messageText="Connect \(provider == "codex" ? "Codex" : "Claude Code") to TypeGrid?"
+        alert.informativeText="TypeGrid will configure the tool’s local metrics exporter. Only token totals and work time leave this Mac. Restart the coding tool once after connecting."
+        alert.addButton(withTitle:"Connect");alert.addButton(withTitle:"Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else{return}
+        do {try configureCoding(provider);startCodingListeners();let result=NSAlert();result.messageText="Connected. Restart your coding tool once.";result.informativeText="TypeGrid collects in the background. No tracker terminal is needed.";result.runModal()}
+        catch {let result=NSAlert();result.messageText="Connection needs attention";result.informativeText=error.localizedDescription;result.runModal()}
+    }
+    func application(_ application:NSApplication,open urls:[URL]) {
+        for url in urls where url.scheme == "typegrid" && url.host == "connect" {
+            let provider=url.path.trimmingCharacters(in:CharacterSet(charactersIn:"/"))
+            if ["codex","claude"].contains(provider){connectProvider(provider)}
+        }
     }
     func installTap() {
         if !CGPreflightListenEventAccess() {
@@ -133,7 +171,8 @@ final class Agent: NSObject, NSApplicationDelegate {
     @objc func quit() { try? save(counter.buckets, to: countersURL); NSApplication.shared.terminate(nil) }
     func tick() {
         config = loadConfig()
-        if config.deviceId != lastDevice { counter = Counter(); acknowledged = [:]; lastDevice = config.deviceId }
+        startCodingListeners()
+        if config.deviceId != lastDevice { counter = Counter(); acknowledged = [:]; lastDevice = config.deviceId; codingListeners.values.forEach{$0.cancel()};codingListeners.removeAll();startCodingListeners() }
         appChanged(); counter.prune()
         if !codingInFlight, let files = try? FileManager.default.contentsOfDirectory(at:root,includingPropertiesForKeys:nil) {
             for file in files where file.lastPathComponent.hasPrefix("coding-") && file.pathExtension == "json" {
@@ -212,6 +251,10 @@ func start() throws {
             switch command {
             case "is-paired": exit(loadConfig().token == nil ? 1 : 0)
             case "pair": try pair()
+            case "connect", "disconnect":
+                guard let provider=CommandLine.arguments.dropFirst(2).first else {throw codingSetupError("Choose codex or claude.")}
+                try configureCoding(provider,disconnect:command == "disconnect")
+                print(command == "disconnect" ? "Disconnected. Restart the coding tool once." : "Connected in the background. Restart the coding tool once; you can close this terminal.")
             case "track":
                 guard CommandLine.arguments.count >= 3 else { throw NSError(domain:"TypeGrid",code:1,userInfo:[NSLocalizedDescriptionKey:"Use typegrid track claude or typegrid track codex."]) }
                 try trackCoding(CommandLine.arguments[2],arguments:Array(CommandLine.arguments.dropFirst(3)))
@@ -224,8 +267,8 @@ func start() throws {
             case "start", "restart": try start()
             case "stop": _ = launch(["bootout", "gui/\(getuid())/dev.typegrid.agent"]); print("TypeGrid stopped. Run typegrid start to resume.")
             case "classify": var c = loadConfig(); c.classify = CommandLine.arguments.last != "off"; try save(c, to: configURL); print("App classification \(c.classify ? "on" : "off").")
-            case "status": let c = loadConfig(); print("TypeGrid 0.1.3\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
-            default: print("TypeGrid 0.1.3 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
+            case "status": let c = loadConfig(); print("TypeGrid 0.1.4\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
+            default: print("TypeGrid 0.1.4 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
             }
         } catch { fputs("TypeGrid: \(error.localizedDescription)\n", stderr); exit(1) }
     }

@@ -61,11 +61,9 @@ async function api(path: string, body?: unknown, method?: string) {
 function Logo() {
   return (
     <Link href="/" className="logo" aria-label="TypeGrid home">
-      <span className="logomark">
-        {Array.from({ length: 25 }, (_, i) => (
-          <i key={i} className={i < 5 || i % 5 === 2 ? "" : "off"} />
-        ))}
-      </span>
+      <svg className="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
+        <path d="M5 7h38v8H5zM9 19h30v5H9zM20 28h8v5h-8zM20 37h8v5h-8z" fill="currentColor" />
+      </svg>
       typegrid<span className="beta">BETA</span>
     </Link>
   );
@@ -100,7 +98,7 @@ function DotField() {
               1,
               Math.hypot((x - w * 0.56) / (w * 0.7), (y - h * 0.5) / (h * 0.8)),
             );
-          ctx.fillStyle = `rgba(${wave > 0.65 ? "181,245,114" : "150,154,149"},${Math.max(0.05, center * (0.12 + Math.max(0, wave) * 0.5))})`;
+          ctx.fillStyle = `rgba(${wave > 0.65 ? "255,92,195" : "86,218,255"},${Math.max(0.05, center * (0.12 + Math.max(0, wave) * 0.5))})`;
           ctx.beginPath();
           ctx.arc(x, y, wave > 0.7 ? 1.5 : 1, 0, Math.PI * 2);
           ctx.fill();
@@ -198,6 +196,11 @@ function Home() {
               Turn everyday typing into stats, streaks, and a little friendly
               competition.
             </p>
+            <div className="hero-install">
+              <span className="mono install-label">YOUR NEXT SESSION STARTS HERE</span>
+              <Command />
+              <p className="install-note">Paste into Terminal · macOS 13+ · Apple Command Line Tools required</p>
+            </div>
             <div className="hero-actions">
               <Link href="/connect" className="button primary">
                 Get TypeGrid for Mac <ArrowRightIcon />
@@ -213,20 +216,13 @@ function Home() {
             </div>
           </div>
           <div className="hero-art">
+            <div className="synth-sun" aria-hidden="true" />
+            <div className="synth-mountains" aria-hidden="true" />
+            <div className="synth-grid" aria-hidden="true" />
             <DotField />
-            <div className="signal-label mono">NODE_001 / HUMAN INPUT</div>
-            <div className="orbit-tag">
-              <i className="status-dot" /> SIGNAL RECEIVED
-            </div>
-            <div className="big-grid-word pixel">
-              type
-              <br />
-              grid<span>_</span>
-            </div>
-            <div className="art-foot mono">
-              SMALL FOOTPRINT.
-              <br />A BIGGER PICTURE.
-            </div>
+            <div className="signal-label mono">TYPEGRID / AFTER HOURS</div>
+            <div className="big-grid-word">MAKE<br /><span>WAVES.</span></div>
+            <div className="art-foot mono"><i className="status-dot" /> EVERY KEY. A LITTLE MOMENTUM.</div>
           </div>
         </section>
         <section className="container demo-wrap">
@@ -1031,7 +1027,7 @@ function Heatmap({ days }: { days: Record<string, number> }) {
             title={`${key}: ${fmt(v)} keystrokes`}
             style={{
               background: v
-                ? `rgba(181,245,114,${Math.min(0.95, 0.2 + v / 20000)})`
+                ? `rgba(255,92,195,${Math.min(0.95, 0.2 + v / 20000)})`
                 : undefined,
             }}
           />
@@ -1049,22 +1045,29 @@ function Leaderboard() {
     [error, setError] = useState(""),
     [busy, setBusy] = useState(true);
   useEffect(() => {
+    let active = true;
     setBusy(true);
     api("leaderboard?period=" + period + "&metric=" + metric)
       .then((d) => {
+        if (!active) return;
         setRows(d.rows);
         setError("");
       })
-      .catch((e) => setError(e.message))
-      .finally(() => setBusy(false));
+      .catch((e) => { if (active) setError(e.message); })
+      .finally(() => { if (active) setBusy(false); });
+    return () => { active = false; };
   }, [period, metric]);
   return (
     <>
-      <PageTitle
-        eyebrow="A LITTLE FRIENDLY COMPETITION"
-        title="Meet the high-frequency humans."
-        text="Public profiles. Real counters. One connected community."
-      />
+      <div className="leaderboard-intro">
+        <span className="leaderboard-emblem" aria-hidden="true"><BarChartIcon /></span>
+        <PageTitle
+          eyebrow="THE TYPEGRID HIGH SCORES"
+          title="Legends of the Grid."
+          text="Find your rhythm. Climb the ranks. A little friendly competition, one session at a time."
+        />
+        <Link href="/settings" className="text-link">Join with a public profile <ArrowRightIcon /></Link>
+      </div>
       <div className="tabs" role="group" aria-label="Leaderboard metric">
         {[
           ["keys", "Keystrokes"],
@@ -1097,7 +1100,19 @@ function Leaderboard() {
           </button>
         ))}
       </div>
-      <div className="leaderboard">
+      {!busy && !error && rows.length > 0 && (
+        <section className="podium" aria-label="Top ranked public profiles">
+          {rows.slice(0, 3).map((r, i) => (
+            <Link href={"/u/" + r.username} className={"podium-card place-" + (i + 1)} key={r.username}>
+              <div className="split"><span className="mono podium-label">{i === 0 ? "LEADING THE GRID" : "ON THE PODIUM"}</span><span className="podium-rank mono">0{i + 1}</span></div>
+              <span className="leader-user"><span className="avatar">{r.username.slice(0, 2)}</span><span>@{r.username}</span></span>
+              <strong className="mono podium-score">{fmt(r.keystrokes)}</strong>
+              <span className="mono podium-label">{metric === "tokens" ? "AI TOKENS" : "KEYSTROKES"} · {period === "day" ? "TODAY" : period === "week" ? "THIS WEEK" : period === "month" ? "THIS MONTH" : "ALL TIME"}</span>
+            </Link>
+          ))}
+        </section>
+      )}
+      <div className="leaderboard" aria-busy={busy}>
         <div className="leader-row table-head">
           <span>RANK</span>
           <span>DEVELOPER</span>
@@ -1111,7 +1126,7 @@ function Leaderboard() {
         ) : rows.length ? (
           rows.map((r, i) => (
             <Link
-              className="leader-row"
+              className={"leader-row" + (i === 0 ? " first-place" : "")}
               key={r.username}
               href={"/u/" + r.username}
             >
@@ -1358,7 +1373,7 @@ function Privacy() {
         ],
         [
           "GitHub and AI tools",
-          "GitHub sign-in uses the public identity scope. We discard the GitHub token after sign-in; public contribution data can be refreshed separately. Optional Claude Code and Codex CLI launchers collect aggregate tokens and work time locally. Public profiles include AI totals. We do not ingest AI prompts, transcripts, raw telemetry logs, or account cookies.",
+          "GitHub sign-in uses the public identity scope. We discard the GitHub token after sign-in; public contribution data can be refreshed separately. Optional Claude Code and Codex connections collect aggregate tokens and work time through the background Mac app. Public profiles include AI totals. We do not ingest AI prompts, transcripts, raw telemetry logs, or account cookies.",
         ],
       ].map(([h, p]) => (
         <section key={h}>

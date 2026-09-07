@@ -22,7 +22,7 @@ TypeGrid is a free, open-source stats network for developers and people who live
 - Hourly patterns, daily records, streaks, XP, levels and achievements
 - GitHub sign-in, editable profiles, and opt-in public leaderboards
 - Daily, weekly, monthly and all-time rankings (UTC calendar periods)
-- Optional Claude Code and Codex CLI token stats, work-time counters, and a separate AI-token leaderboard ([setup](docs/CODING.md))
+- Optional background Claude Code and Codex token stats, work-time counters, and a separate AI-token leaderboard ([setup](docs/CODING.md))
 - A native Swift macOS app with a dotted menu-bar icon, pause, background startup and offline retry
 - Public GitHub repository, follower and recent-event statistics
 - Data export, device revocation and account deletion

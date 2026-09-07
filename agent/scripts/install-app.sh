@@ -27,12 +27,13 @@ cat > "$TYPEGRID_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>TypeGrid</string>
 <key>CFBundleExecutable</key><string>TypeGrid</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.3</string>
-<key>CFBundleVersion</key><string>4</string>
+<key>CFBundleShortVersionString</key><string>0.1.4</string>
+<key>CFBundleVersion</key><string>5</string>
 <key>CFBundleIconFile</key><string>TypeGrid</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
+<key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>dev.typegrid.connect</string><key>CFBundleURLSchemes</key><array><string>typegrid</string></array></dict></array>
 </dict></plist>
 PLIST
 TYPEGRID_ICON_TMP=$(mktemp -d)
@@ -43,5 +44,6 @@ iconutil -c icns "$TYPEGRID_ICON_TMP/TypeGrid.iconset" -o "$TYPEGRID_APP/Content
 codesign --force --deep --sign - --identifier dev.typegrid.agent "$TYPEGRID_APP"
 if [ -f "$TYPEGRID_BIN" ] || [ -L "$TYPEGRID_BIN" ]; then unlink "$TYPEGRID_BIN"; fi
 ln -s "$TYPEGRID_APP/Contents/MacOS/TypeGrid" "$TYPEGRID_BIN"
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister "$TYPEGRID_APP"
 printf '\nInstalled %s\nCLI: %s\n' "$TYPEGRID_APP" "$TYPEGRID_BIN"
 printf 'In Input Monitoring, add TypeGrid.app from Applications.\n'

@@ -51,4 +51,4 @@ No tracker can guarantee mathematically exact counts across hardware, permission
 
 ## Optional coding activity
 
-When you launch Claude Code or Codex through TypeGrid, a local metrics-only receiver reduces documented counters to hourly token totals and work seconds. Provider credentials remain with the coding tool. No prompts or transcripts are stored or uploaded. Public profiles include AI totals. See [coding activity](CODING.md) for exact metric meanings and limitations.
+When you connect Claude Code or Codex to TypeGrid, a local metrics-only receiver reduces documented counters to hourly token totals and work seconds. Provider credentials remain with the coding tool. No prompts or transcripts are stored or uploaded. Public profiles include AI totals. See [coding activity](CODING.md) for exact metric meanings and limitations.
