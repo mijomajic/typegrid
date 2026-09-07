@@ -62,7 +62,10 @@ function Logo() {
   return (
     <Link href="/" className="logo" aria-label="TypeGrid home">
       <svg className="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
-        <path d="M5 7h38v8H5zM9 19h30v5H9zM20 28h8v5h-8zM20 37h8v5h-8z" fill="currentColor" />
+        <path
+          d="M5 7h38v8H5zM9 19h30v5H9zM20 28h8v5h-8zM20 37h8v5h-8z"
+          fill="currentColor"
+        />
       </svg>
       typegrid<span className="beta">BETA</span>
     </Link>
@@ -98,7 +101,7 @@ function DotField() {
               1,
               Math.hypot((x - w * 0.56) / (w * 0.7), (y - h * 0.5) / (h * 0.8)),
             );
-          ctx.fillStyle = `rgba(${wave > 0.65 ? "255,92,195" : "86,218,255"},${Math.max(0.05, center * (0.12 + Math.max(0, wave) * 0.5))})`;
+          ctx.fillStyle = `rgba(${wave > 0.65 ? "146,245,114" : "121,150,115"},${Math.max(0.05, center * (0.12 + Math.max(0, wave) * 0.5))})`;
           ctx.beginPath();
           ctx.arc(x, y, wave > 0.7 ? 1.5 : 1, 0, Math.PI * 2);
           ctx.fill();
@@ -111,12 +114,37 @@ function DotField() {
   }, []);
   return <canvas ref={ref} className="dotfield" aria-hidden="true" />;
 }
+function LoadingDots() {
+  return (
+    <span className="loading-dots" aria-hidden="true">
+      <i />
+      <i />
+      <i />
+    </span>
+  );
+}
+function Spinner() {
+  return (
+    <span className="spinner" aria-hidden="true">
+      {Array.from({ length: 8 }, (_, i) => (
+        <i
+          key={i}
+          style={{
+            transform: `rotate(${i * 45}deg)`,
+            animationDelay: `${i * -0.1}s`,
+          }}
+        />
+      ))}
+    </span>
+  );
+}
 function Copy({ text = install }: { text?: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
-      className="copy"
-      aria-label="Copy command"
+      className={"copy" + (copied ? " copied" : "")}
+      aria-label={copied ? "Command copied" : "Copy command"}
+      title={copied ? "Copied" : "Copy command"}
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(text);
@@ -127,7 +155,12 @@ function Copy({ text = install }: { text?: string }) {
         }
       }}
     >
-      {copied ? <CheckIcon /> : <CopyIcon />}
+      <span className="copy-icon" key={copied ? "done" : "copy"}>
+        {copied ? <CheckIcon /> : <CopyIcon />}
+      </span>
+      <span className="sr-only" role="status">
+        {copied ? "Command copied" : ""}
+      </span>
     </button>
   );
 }
@@ -184,22 +217,23 @@ function Home() {
               <i className="status-dot" /> BUILT FOR MAC. CONNECTED TO THE GRID.
             </div>
             <h1>
-              Every keystroke
+              A little more you.
               <br />
-              counts<span className="accent">.</span>
-              <br />
-              <span className="pixel">Make yours count.</span>
+              <span className="pixel">In numbers.</span>
             </h1>
             <p>
-              Your Mac has a story. See it in numbers.
-              <br />
-              Turn everyday typing into stats, streaks, and a little friendly
-              competition.
+              Every keystroke counts. See your rhythm in stats, streaks, and a
+              little friendly competition. All from your menu bar.
             </p>
             <div className="hero-install">
-              <span className="mono install-label">YOUR NEXT SESSION STARTS HERE</span>
+              <span className="mono install-label">
+                INSTALL TYPEGRID · MACOS
+              </span>
               <Command />
-              <p className="install-note">Paste into Terminal · macOS 13+ · Apple Command Line Tools required</p>
+              <p className="install-note">
+                Paste into Terminal · macOS 13+ · Apple Command Line Tools
+                required
+              </p>
             </div>
             <div className="hero-actions">
               <Link href="/connect" className="button primary">
@@ -215,17 +249,26 @@ function Home() {
               <span>No text collected</span>
             </div>
           </div>
-          <div className="hero-art">
-            <div className="synth-sun" aria-hidden="true" />
-            <div className="synth-mountains" aria-hidden="true" />
-            <div className="synth-grid" aria-hidden="true" />
+          <div className="matrix-field" aria-hidden="true">
             <DotField />
-            <div className="signal-label mono">TYPEGRID / AFTER HOURS</div>
-            <div className="big-grid-word">MAKE<br /><span>WAVES.</span></div>
-            <div className="art-foot mono"><i className="status-dot" /> EVERY KEY. A LITTLE MOMENTUM.</div>
           </div>
+          <span className="hero-coordinate mono" aria-hidden="true">
+            [ INPUT → COUNTS ]
+          </span>
+          <span className="hero-coordinate right mono" aria-hidden="true">
+            [ CONTENT → NEVER ]
+          </span>
         </section>
         <section className="container demo-wrap">
+          <div className="product-window-bar">
+            <span className="window-dots" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            <span className="mono">typegrid / overview</span>
+            <span className="tag">ILLUSTRATIVE PREVIEW</span>
+          </div>
           <div className="section-heading">
             <span className="eyebrow">A LITTLE MORE YOU, IN NUMBERS.</span>
             <span className="mono muted">↓ INSIDE THE GRID</span>
@@ -490,15 +533,28 @@ export function TypeGrid({
             </div>
           )}
           {loading ? (
-            <div className="skeleton">
-              <div />
-              <div />
-              <div />
+            <div className="workspace-loading" role="status" aria-live="polite">
+              <p className="loading-label">
+                Loading your workspace <LoadingDots />
+              </p>
+              <div className="skeleton" aria-hidden="true">
+                <div />
+                <div />
+                <div />
+              </div>
             </div>
           ) : (
             <>
               {page === "dashboard" && (
                 <>
+                  <div className="workspace-toolbar">
+                    <span className="mono">
+                      WORKSPACE <span className="muted">/</span> OVERVIEW
+                    </span>
+                    <Link href="/leaderboard" className="text-link">
+                      View leaderboard <ArrowRightIcon />
+                    </Link>
+                  </div>
                   <div className="page-title split">
                     <div>
                       <div className="eyebrow">YOUR DAILY SIGNAL · UTC</div>
@@ -552,7 +608,7 @@ export function TypeGrid({
                           ],
                           [
                             "Current streak",
-                            `${stats.streak} days`,
+                            `${stats.streak} ${stats.streak === 1 ? "day" : "days"}`,
                             "Show up. Keep the signal alive.",
                           ],
                         ].map(([label, value, sub]) => (
@@ -563,46 +619,48 @@ export function TypeGrid({
                           </div>
                         ))}
                       </div>
-                      <CodingStats />
-                      <Activity buckets={todayBuckets} />
-                      <div className="two-col">
-                        <section className="panel">
-                          <div className="split">
-                            <h3>Typing activity</h3>
-                            <span className="tag">LAST 12 WEEKS</span>
-                          </div>
-                          <Heatmap days={stats.days} />
-                          <div className="heatmap-legend">
-                            Less{" "}
-                            {[0.15, 0.35, 0.6, 1].map((n) => (
-                              <i key={n} style={{ opacity: n }} />
-                            ))}{" "}
-                            More
-                          </div>
-                          <p className="muted">
-                            Consistency looks good on you.
-                          </p>
-                        </section>
-                        <section className="panel">
-                          <div className="split">
-                            <h3>Level {stats.level}</h3>
-                            <LightningBoltIcon />
-                          </div>
-                          <div className="level-number pixel">
-                            {String(stats.level).padStart(2, "0")}
-                          </div>
-                          <div className="progress">
-                            <span
-                              style={{
-                                width: `${Math.min(100, (stats.xp / stats.nextLevel) * 100)}%`,
-                              }}
-                            />
-                          </div>
-                          <p className="mono muted">
-                            {fmt(stats.xp)} / {fmt(stats.nextLevel)} XP
-                          </p>
-                        </section>
+                      <div className="dashboard-board">
+                        <Activity buckets={todayBuckets} />
+                        <div className="two-col">
+                          <section className="panel">
+                            <div className="split">
+                              <h3>Typing activity</h3>
+                              <span className="tag">LAST 12 WEEKS</span>
+                            </div>
+                            <Heatmap days={stats.days} />
+                            <div className="heatmap-legend">
+                              Less{" "}
+                              {[0.15, 0.35, 0.6, 1].map((n) => (
+                                <i key={n} style={{ opacity: n }} />
+                              ))}{" "}
+                              More
+                            </div>
+                            <p className="muted">
+                              Consistency looks good on you.
+                            </p>
+                          </section>
+                          <section className="panel">
+                            <div className="split">
+                              <h3>Level {stats.level}</h3>
+                              <LightningBoltIcon />
+                            </div>
+                            <div className="level-number pixel">
+                              {String(stats.level).padStart(2, "0")}
+                            </div>
+                            <div className="progress">
+                              <span
+                                style={{
+                                  width: `${Math.min(100, (stats.xp / stats.nextLevel) * 100)}%`,
+                                }}
+                              />
+                            </div>
+                            <p className="mono muted">
+                              {fmt(stats.xp)} / {fmt(stats.nextLevel)} XP
+                            </p>
+                          </section>
+                        </div>
                       </div>
+                      <CodingStats />
                       <div className="metrics compact">
                         {[
                           ["Sessions today", daily.sessions],
@@ -939,7 +997,13 @@ function Pair({
         />
       </label>
       <button disabled={busy} className="button primary">
-        {busy ? "Connecting…" : "Connect machine"}
+        {busy ? (
+          <>
+            <Spinner /> Connecting
+          </>
+        ) : (
+          "Connect machine"
+        )}
       </button>
     </form>
   );
@@ -993,7 +1057,7 @@ function Heatmap({ days }: { days: Record<string, number> }) {
             title={`${key}: ${fmt(v)} keystrokes`}
             style={{
               background: v
-                ? `rgba(255,92,195,${Math.min(0.95, 0.2 + v / 20000)})`
+                ? `rgba(146,245,114,${Math.min(0.95, 0.2 + v / 20000)})`
                 : undefined,
             }}
           />
@@ -1019,20 +1083,30 @@ function Leaderboard() {
         setRows(d.rows);
         setError("");
       })
-      .catch((e) => { if (active) setError(e.message); })
-      .finally(() => { if (active) setBusy(false); });
-    return () => { active = false; };
+      .catch((e) => {
+        if (active) setError(e.message);
+      })
+      .finally(() => {
+        if (active) setBusy(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [period, metric]);
   return (
     <>
       <div className="leaderboard-intro">
-        <span className="leaderboard-emblem" aria-hidden="true"><BarChartIcon /></span>
+        <span className="leaderboard-emblem" aria-hidden="true">
+          <BarChartIcon />
+        </span>
         <PageTitle
           eyebrow="THE TYPEGRID HIGH SCORES"
-          title="Legends of the Grid."
-          text="Find your rhythm. Climb the ranks. A little friendly competition, one session at a time."
+          title="The high scores."
+          text="A little friendly competition. Real people, real counters. Find your place on the Grid."
         />
-        <Link href="/settings" className="text-link">Join with a public profile <ArrowRightIcon /></Link>
+        <Link href="/settings" className="text-link">
+          Join with a public profile <ArrowRightIcon />
+        </Link>
       </div>
       <div className="tabs" role="group" aria-label="Leaderboard metric">
         {[
@@ -1069,11 +1143,32 @@ function Leaderboard() {
       {!busy && !error && rows.length > 0 && (
         <section className="podium" aria-label="Top ranked public profiles">
           {rows.slice(0, 3).map((r, i) => (
-            <Link href={"/u/" + r.username} className={"podium-card place-" + (i + 1)} key={r.username}>
-              <div className="split"><span className="mono podium-label">{i === 0 ? "LEADING THE GRID" : "ON THE PODIUM"}</span><span className="podium-rank mono">0{i + 1}</span></div>
-              <span className="leader-user"><span className="avatar">{r.username.slice(0, 2)}</span><span>@{r.username}</span></span>
+            <Link
+              href={"/u/" + r.username}
+              className={"podium-card place-" + (i + 1)}
+              key={r.username}
+            >
+              <div className="split">
+                <span className="mono podium-label">
+                  {i === 0 ? "LEADING THE GRID" : "ON THE PODIUM"}
+                </span>
+                <span className="podium-rank mono">0{i + 1}</span>
+              </div>
+              <span className="leader-user">
+                <span className="avatar">{r.username.slice(0, 2)}</span>
+                <span>@{r.username}</span>
+              </span>
               <strong className="mono podium-score">{fmt(r.keystrokes)}</strong>
-              <span className="mono podium-label">{metric === "tokens" ? "AI TOKENS" : "KEYSTROKES"} · {period === "day" ? "TODAY" : period === "week" ? "THIS WEEK" : period === "month" ? "THIS MONTH" : "ALL TIME"}</span>
+              <span className="mono podium-label">
+                {metric === "tokens" ? "AI TOKENS" : "KEYSTROKES"} ·{" "}
+                {period === "day"
+                  ? "TODAY"
+                  : period === "week"
+                    ? "THIS WEEK"
+                    : period === "month"
+                      ? "THIS MONTH"
+                      : "ALL TIME"}
+              </span>
             </Link>
           ))}
         </section>
@@ -1088,7 +1183,16 @@ function Leaderboard() {
         {error ? (
           <p role="alert">{error}</p>
         ) : busy ? (
-          <p className="muted">Loading the Grid…</p>
+          <div className="leaderboard-loading" role="status" aria-live="polite">
+            <p className="loading-label">
+              Loading the Grid <LoadingDots />
+            </p>
+            <div className="skeleton" aria-hidden="true">
+              <div />
+              <div />
+              <div />
+            </div>
+          </div>
         ) : rows.length ? (
           rows.map((r, i) => (
             <Link
@@ -1222,7 +1326,15 @@ function Settings({
           </span>
         </label>
         <button type="submit" disabled={busy} className="button primary">
-          {busy ? "Saving…" : saved ? "Saved" : "Save changes"} <CheckIcon />
+          {busy ? (
+            <>
+              <Spinner /> Saving
+            </>
+          ) : (
+            <>
+              {saved ? "Saved" : "Save changes"} <CheckIcon />
+            </>
+          )}
         </button>
         {saveError && (
           <p className="error" role="alert">

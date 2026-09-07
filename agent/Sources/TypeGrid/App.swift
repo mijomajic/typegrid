@@ -73,6 +73,7 @@ final class Agent: NSObject, NSApplicationDelegate {
     var tap: CFMachPort?
     var status: NSStatusItem!
     var timer: Timer?
+    var displayTimer: Timer?
     var codingListeners:[String:NWListener] = [:]
     var paused = false
     var inFlight = false
@@ -88,18 +89,21 @@ final class Agent: NSObject, NSApplicationDelegate {
         lastDevice = config.deviceId
         startCodingListeners()
         if let data = try? Data(contentsOf: countersURL), let buckets = try? JSONDecoder().decode([String: Bucket].self, from: data) { counter = Counter(buckets: buckets) }
-        status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        let icon = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
+        status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        let icon = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
             NSColor.labelColor.setFill()
-            for row in 0..<5 { for col in 0..<5 {
-                if row == 0 || col == 2 {
-                    NSBezierPath(ovalIn: NSRect(x: 1 + CGFloat(col) * 3.3, y: 14.2 - CGFloat(row) * 3.3, width: 2.6, height: 2.6)).fill()
-                }
-            }}
+            for rect in [
+                NSRect(x: 1, y: 13, width: 16, height: 4),
+                NSRect(x: 3, y: 9, width: 12, height: 2),
+                NSRect(x: 7, y: 5, width: 4, height: 2),
+                NSRect(x: 7, y: 1, width: 4, height: 2)
+            ] { NSBezierPath(rect: rect).fill() }
             return true
         }
         icon.isTemplate = true
         status.button?.image = icon
+        status.button?.imagePosition = .imageLeading
+        status.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         status.button?.setAccessibilityLabel("TypeGrid")
         let menu = NSMenu()
         menu.addItem(withTitle: "TypeGrid · starting", action: nil, keyEquivalent: "")
@@ -117,6 +121,8 @@ final class Agent: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(appChanged), name: NSWorkspace.didActivateApplicationNotification, object: nil)
         appChanged()
         installTap()
+        updateStatusDisplay()
+        displayTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.updateStatusDisplay() }
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.tick() }
     }
     func startCodingListeners() {
@@ -173,6 +179,17 @@ final class Agent: NSObject, NSApplicationDelegate {
     @objc func dashboard() { if let url = URL(string: config.server + "/dashboard") { NSWorkspace.shared.open(url) } }
     @objc func toggle() { paused.toggle(); tick() }
     @objc func quit() { try? save(counter.buckets, to: countersURL); NSApplication.shared.terminate(nil) }
+    // Redraw aggregate totals locally once per second; no additional sync or event inspection.
+    func updateStatusDisplay() {
+        let today = ISO8601DateFormatter().string(from: Date()).prefix(10)
+        let total = counter.buckets.values.filter { $0.hour.hasPrefix(today) }.reduce(0) { $0 + $1.keystrokes }
+        status.menu?.items.first?.title = paused ? "Tracking paused" : tap == nil ? "Allow Input Monitoring" : "\(total.formatted()) keystrokes today"
+        status.menu?.items.first(where: { $0.action == #selector(toggle) })?.title = paused ? "Resume tracking" : "Pause tracking"
+        status.button?.title = " " + total.formatted() + (paused ? " Ⅱ" : tap == nil ? " !" : "")
+        status.button?.setAccessibilityLabel("TypeGrid, \(total.formatted()) keystrokes today, UTC" + (paused ? ", paused" : tap == nil ? ", Input Monitoring required" : ""))
+        status.button?.appearsDisabled = paused || tap == nil
+        status.button?.toolTip = "TypeGrid — \(total.formatted()) keystrokes today (UTC). \(statusText). We count. We don’t read."
+    }
     func tick() {
         config = loadConfig()
         startCodingListeners()
@@ -208,12 +225,7 @@ final class Agent: NSObject, NSApplicationDelegate {
             }
         }
         do { try save(counter.buckets, to: countersURL) } catch { statusText = "Cannot save counters. Check disk space." }
-        let today = ISO8601DateFormatter().string(from: Date()).prefix(10)
-        let total = counter.buckets.values.filter { $0.hour.hasPrefix(today) }.reduce(0) { $0 + $1.keystrokes }
-        status.menu?.items.first?.title = paused ? "Tracking paused" : tap == nil ? "Allow Input Monitoring" : "\(total.formatted()) keystrokes today"
-        status.menu?.items.first(where: { $0.action == #selector(toggle) })?.title = paused ? "Resume tracking" : "Pause tracking"
-        status.button?.appearsDisabled = paused || tap == nil
-        status.button?.toolTip = "TypeGrid — \(statusText). We count. We don’t read."
+        updateStatusDisplay()
         guard config.token != nil, !inFlight else { return }
         let pending = counter.buckets.values.filter { acknowledged[$0.hour] != $0 }.sorted { $0.hour < $1.hour }.prefix(48)
         let batch = Array(pending)
