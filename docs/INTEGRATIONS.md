@@ -2,7 +2,7 @@
 
 Core keystroke tracking works without any of these integrations.
 
-| Tool        | Legitimate support                                                                                 | TypeGrid v0.1.5                                                                                              |
+| Tool        | Legitimate support                                                                                 | TypeGrid v0.1.6                                                                                              |
 | ----------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | GitHub      | OAuth authorization code + PKCE; public user REST API and public events                            | Sign-in plus public repository/follower counts and up to 100 recent public events; no retained OAuth token |
 | Claude Code | Opt-in OpenTelemetry metrics include token usage and cost; logs can include sensitive event fields | Background Mac receiver collects tokens and active time; see CODING.md                                                                            |

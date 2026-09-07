@@ -185,10 +185,16 @@ async function handler(
             await db()`SELECT id FROM users WHERE username=${name.toLowerCase()} AND is_public=true`
           )[0]
         : await getUser();
-      if (!u) return json({ rows: [] });
+      if (!u) return json({ rows: [], connections: [] });
       const rows =
         await db()`SELECT b.provider,SUM(b.tokens)::bigint AS tokens,SUM(b.work_seconds) AS seconds,MAX(b.hour) AS latest FROM coding_buckets b JOIN devices d ON d.id=b.device_id WHERE d.user_id=${u.id} GROUP BY b.provider`;
+      const connections = name
+        ? []
+        : await db()`SELECT DISTINCT unnest(coding_providers) AS provider,
+          (last_seen > now() - interval '30 seconds') AS online
+          FROM devices WHERE user_id=${u.id} AND revoked=false`;
       return json({
+        connections,
         rows: rows.map((r) => ({
           ...r,
           tokens: Number(r.tokens),
@@ -276,6 +282,8 @@ async function handler(
         for (const b of payload.buckets)
           await tx`INSERT INTO buckets(device_id,hour,keystrokes,active_seconds,sessions,dev_keystrokes,peak_wpm) VALUES(${d.id},${b.hour},${b.keystrokes},${b.activeSeconds},${b.sessions},${b.devKeystrokes},${b.peakWpm}) ON CONFLICT(device_id,hour) DO UPDATE SET keystrokes=GREATEST(buckets.keystrokes,excluded.keystrokes),active_seconds=GREATEST(buckets.active_seconds,excluded.active_seconds),sessions=GREATEST(buckets.sessions,excluded.sessions),dev_keystrokes=GREATEST(buckets.dev_keystrokes,excluded.dev_keystrokes),peak_wpm=GREATEST(buckets.peak_wpm,excluded.peak_wpm)`;
         await tx`UPDATE devices SET last_seen=now() WHERE id=${d.id}`;
+        if (payload.codingProviders !== undefined)
+          await tx`UPDATE devices SET coding_providers=${payload.codingProviders} WHERE id=${d.id}`;
       });
       return json({ ok: true });
     }

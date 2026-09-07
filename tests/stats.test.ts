@@ -68,3 +68,25 @@ test("words, XP, streaks and records derive only from counters", () => {
     1,
   );
 });
+
+test("agent status accepts only supported provider names and remains backward compatible", () => {
+  for (const codingProviders of [
+    undefined,
+    [],
+    ["codex"],
+    ["claude", "codex", "cursor"],
+  ])
+    assert.equal(
+      ingestSchema.safeParse({ buckets: [], codingProviders }).success,
+      true,
+    );
+  for (const codingProviders of [
+    ["unknown"],
+    ["codex", "codex", "codex", "codex"],
+    [{ provider: "codex", prompt: "private" }],
+  ])
+    assert.equal(
+      ingestSchema.safeParse({ buckets: [], codingProviders }).success,
+      false,
+    );
+});

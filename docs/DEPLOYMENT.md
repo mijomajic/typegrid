@@ -22,4 +22,10 @@ The root has no Sites metadata or Cloudflare runtime. The repository is compatib
 
 ## Release source installer
 
-After tagging `v0.1.5`, create `typegrid-source.tar.gz` with `git archive --prefix=typegrid/ v0.1.5`, generate `SHA256SUMS`, and upload both to the GitHub release. The one-line installer downloads those pinned assets and compiles with Apple’s Swift compiler. Checksums detect corruption, not compromise of the repository owner’s release account. This beta does not claim notarization, hardware-wide verification, or a signed auto-update channel.
+From the reviewed v0.1.6 checkout, run `sh scripts/package-release.sh /tmp/typegrid-v0.1.6-release`, tag that same source as `v0.1.6`, and upload both generated assets to the GitHub release. The packager includes only explicitly allowed source directories. The one-line installer downloads those pinned assets and compiles with Apple’s Swift compiler. Checksums detect corruption, not compromise of the repository owner’s release account. This beta does not claim notarization, hardware-wide verification, or a signed auto-update channel.
+
+For v0.1.6, apply the additive database migration before deploying the web app.
+Publish the source release before deploying its pinned installer. Older agents
+continue syncing normally; rerun the install command to enable connection status.
+Connected means the paired agent reports the tool configured and its local receiver
+running; it does not prove the tool has exported usage yet.

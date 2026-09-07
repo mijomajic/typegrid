@@ -1,35 +1,101 @@
 "use client";
 import { useEffect, useState } from "react";
-export function CodingStats({ username }: { username?: string }) {
-  const [rows, setRows] = useState<
-    { provider: string; tokens: number; seconds: number; latest: string }[]
-  >([]);
+type CodingRow = {
+  provider: string;
+  tokens: number;
+  seconds: number;
+  latest: string;
+};
+type Connection = { provider: string; online: boolean };
+function useCoding(username?: string) {
+  const [data, setData] = useState<{
+    rows: CodingRow[];
+    connections: Connection[];
+  }>({ rows: [], connections: [] });
+  const [state, setState] = useState("loading");
   useEffect(() => {
     let alive = true;
-    const refresh = () =>
-      fetch(
-        "/api/coding" +
-          (username ? "?username=" + encodeURIComponent(username) : ""),
-      )
-        .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then((d) => {
-          if (alive) setRows(d.rows);
-        })
-        .catch(() => {});
-    refresh();
-    const id = setInterval(refresh, 10000);
+    const refresh = async () => {
+      try {
+        const response = await fetch(
+          "/api/coding" +
+            (username ? "?username=" + encodeURIComponent(username) : ""),
+        );
+        if (!response.ok) throw new Error();
+        const next = await response.json();
+        if (alive) {
+          setData(next);
+          setState("ready");
+        }
+      } catch {
+        if (alive) setState("error");
+      }
+    };
+    void refresh();
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
+    }, 10000);
     return () => {
       alive = false;
-      clearInterval(id);
+      clearInterval(timer);
     };
   }, [username]);
-  if (!rows.length) return null;
+  return { ...data, state };
+}
+export function CodingStats({ username }: { username?: string }) {
+  const { rows, connections, state } = useCoding(username);
+  if (username && !rows.length) return null;
   return (
-    <section className="panel">
+    <section className="panel coding-activity">
       <div className="split">
-        <h3>Your AI activity</h3>
+        <h3>{username ? "AI activity" : "Your AI activity"}</h3>
         <span className="tag">ALL TIME</span>
       </div>
+      {!username && connections.length > 0 && (
+        <div className="coding-status-list">
+          {Array.from(new Set(connections.map((c) => c.provider))).map(
+            (provider) => (
+              <span className="tag" key={provider}>
+                <i
+                  className={
+                    connections.some((c) => c.provider === provider && c.online)
+                      ? "status-dot"
+                      : "status-dot offline"
+                  }
+                />
+                {provider === "codex"
+                  ? "Codex"
+                  : provider === "claude"
+                    ? "Claude Code"
+                    : "Cursor"}{" "}
+                ·{" "}
+                {connections.some((c) => c.provider === provider && c.online)
+                  ? "Connected"
+                  : "Agent offline"}
+              </span>
+            ),
+          )}
+        </div>
+      )}
+      {state === "error" && (
+        <p role="status">
+          AI activity could not refresh. Retrying automatically.
+        </p>
+      )}
+      {!rows.length && (
+        <p>
+          {state === "loading"
+            ? "Loading AI activity…"
+            : connections.length
+              ? "Your tools are set up. Token totals and time will appear after metrics arrive. Restart your coding tool once after connecting."
+              : "Connect Codex or Claude Code to see token totals and time here."}{" "}
+          {!connections.length && (
+            <a className="text-link" href="/integrations">
+              Manage integrations ↗
+            </a>
+          )}
+        </p>
+      )}
       <div className="metrics compact">
         {rows.map((r) => (
           <div key={r.provider}>
@@ -89,6 +155,7 @@ function ProviderMark({ provider }: { provider: string }) {
   );
 }
 export function CodingConnections() {
+  const { connections, state } = useCoding();
   const providers = [
     {
       id: "claude",
@@ -111,51 +178,67 @@ export function CodingConnections() {
   ];
   return (
     <div className="provider-grid">
-      {providers.map((p) => (
-        <section className="provider-card" key={p.id}>
-          <div className="provider-top">
-            <ProviderMark provider={p.id} />
-            <div>
-              <h3>{p.name}</h3>
-              <span>macOS</span>
+      {providers.map((p) => {
+        const connected = connections.some((c) => c.provider === p.id);
+        const online = connections.some((c) => c.provider === p.id && c.online);
+        return (
+          <section className="provider-card" key={p.id}>
+            <div className="provider-top">
+              <ProviderMark provider={p.id} />
+              <div>
+                <h3>{p.name}</h3>
+                <span>macOS</span>
+              </div>
+              {connected && state !== "error" ? (
+                <span className="tag" role="status">
+                  <i className={online ? "status-dot" : "status-dot offline"} />
+                  {online ? "Connected" : "Agent offline"}
+                </span>
+              ) : (
+                <a
+                  className="button small"
+                  href={"typegrid://connect/" + p.id}
+                  aria-label={"Connect " + p.name}
+                >
+                  {state === "loading"
+                    ? "Checking…"
+                    : state === "error"
+                      ? "Retry setup"
+                      : "Connect"}{" "}
+                  <span aria-hidden="true">↗</span>
+                </a>
+              )}
             </div>
-            <a
-              className="button small"
-              href={"typegrid://connect/" + p.id}
-              aria-label={"Connect " + p.name}
-            >
-              Connect <span aria-hidden="true">↗</span>
-            </a>
-          </div>
-          <p>{p.description}</p>
-          <div className="provider-metrics">
-            <i />
-            {p.metrics}
-          </div>
-          <details>
-            <summary>
-              Setup details <span>+</span>
-            </summary>
-            <p>
-              Connect once, then restart {p.name}. TypeGrid runs in the
-              background with your existing sign-in. Requires the latest Mac
-              agent.
-            </p>
-            {p.id === "cursor" ? (
+            <p>{p.description}</p>
+            <div className="provider-metrics">
+              <i />
+              {p.metrics}
+            </div>
+            <details>
+              <summary>
+                Setup details <span>+</span>
+              </summary>
               <p>
-                Uses Cursor’s session-end hook. Personal token totals aren’t
-                available through this connection. Session time includes idle
-                time.
+                Connect once, then restart {p.name}. TypeGrid runs in the
+                background with your existing sign-in. Requires the latest Mac
+                agent.
               </p>
-            ) : p.id === "codex" ? (
-              <p>
-                Uses Codex’s shared metrics settings. Desktop exports depend on
-                the installed app version.
-              </p>
-            ) : null}
-          </details>
-        </section>
-      ))}
+              {p.id === "cursor" ? (
+                <p>
+                  Uses Cursor’s session-end hook. Personal token totals aren’t
+                  available through this connection. Session time includes idle
+                  time.
+                </p>
+              ) : p.id === "codex" ? (
+                <p>
+                  Uses Codex’s shared metrics settings. Desktop exports depend
+                  on the installed app version.
+                </p>
+              ) : null}
+            </details>
+          </section>
+        );
+      })}
     </div>
   );
 }

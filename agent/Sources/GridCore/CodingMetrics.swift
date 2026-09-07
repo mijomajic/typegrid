@@ -16,6 +16,7 @@ private struct Envelope: Decodable {
     struct Series: Decodable { var aggregationTemporality: Int; var dataPoints: [Point] }
     struct Point: Decodable {
         var startTimeUnixNano: String
+        var timeUnixNano: String?
         var asInt: String?
         var asDouble: Double?
         var sum: Double?
@@ -48,7 +49,7 @@ public struct CodingMetrics: Codable {
             case ("claude","claude_code.active_time.total"), ("codex","codex.turn.e2e_duration_ms"): kind="time"
             default: continue
             }
-            guard let series = metric.sum ?? metric.histogram, series.aggregationTemporality == 2 else { continue }
+            guard let series = metric.sum ?? metric.histogram, [1,2].contains(series.aggregationTemporality) else { continue }
             for point in series.dataPoints {
                 guard point.startTimeUnixNano.count <= 20, let start = Double(point.startTimeUnixNano), start > 0 else { continue }
                 if provider == "codex" && kind == "tokens" {
@@ -56,7 +57,11 @@ public struct CodingMetrics: Codable {
                 }
                 guard let value = point.asDouble ?? point.asInt.flatMap(Double.init) ?? point.sum, value.isFinite, value >= 0, value <= 1e12 else { continue }
                 // A cumulative series starts at process creation. Collapse dimensions before taking its delta.
-                let key = provider + ":" + metric.name + ":" + point.startTimeUnixNano
+                var key = provider + ":" + metric.name + ":" + point.startTimeUnixNano
+                if series.aggregationTemporality == 1 {
+                    guard let end=point.timeUnixNano, end.count<=20, let timestamp=Double(end), timestamp>=start else {continue}
+                    key += ":delta:" + end
+                }
                 sums[key,default:0] += value; kinds[key] = kind
             }
         }}}

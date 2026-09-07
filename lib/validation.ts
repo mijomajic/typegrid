@@ -25,6 +25,10 @@ export const bucketSchema = z
   .refine((b) => b.devKeystrokes <= b.keystrokes, "Dev count exceeds total");
 export const ingestSchema = z.strictObject({
   buckets: z.array(bucketSchema).max(48),
+  codingProviders: z
+    .array(z.enum(["claude", "codex", "cursor"]))
+    .max(3)
+    .optional(),
 });
 export const profileSchema = z.strictObject({
   username: z

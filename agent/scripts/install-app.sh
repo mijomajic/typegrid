@@ -14,8 +14,8 @@ if [ -d "$TYPEGRID_APP" ]; then
     exit 1
   fi
 fi
-launchctl bootout "gui/$(id -u)/dev.typegrid.agent" >/dev/null 2>&1 || true
 swift build --package-path "$TYPEGRID_AGENT_DIR" -c release
+launchctl bootout "gui/$(id -u)/dev.typegrid.agent" >/dev/null 2>&1 || true
 mkdir -p "$TYPEGRID_APP/Contents/MacOS" "$TYPEGRID_APP/Contents/Resources" "$HOME/.local/bin"
 install -m 755 "$TYPEGRID_AGENT_DIR/.build/release/typegrid" "$TYPEGRID_APP/Contents/MacOS/TypeGrid"
 cat > "$TYPEGRID_APP/Contents/Info.plist" <<'PLIST'
@@ -27,8 +27,8 @@ cat > "$TYPEGRID_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>TypeGrid</string>
 <key>CFBundleExecutable</key><string>TypeGrid</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.5</string>
-<key>CFBundleVersion</key><string>6</string>
+<key>CFBundleShortVersionString</key><string>0.1.6</string>
+<key>CFBundleVersion</key><string>7</string>
 <key>CFBundleIconFile</key><string>TypeGrid</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>LSUIElement</key><true/>

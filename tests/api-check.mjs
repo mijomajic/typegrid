@@ -1,6 +1,6 @@
 // Disposable local account; exercises the real database and HTTP handlers.
 import assert from "node:assert/strict";
-const base = "http://127.0.0.1:3000";
+const base = process.env.TYPEGRID_TEST_URL || "http://127.0.0.1:3000";
 let cookie = "";
 async function call(path, body, method = "POST", extra = {}) {
   const r = await fetch(base + "/api/" + path, {
@@ -47,6 +47,36 @@ try {
     peakWpm: 28,
   };
   const auth = { Authorization: "Bearer " + device.token };
+  assert.equal(
+    (
+      await call(
+        "ingest",
+        { buckets: [], codingProviders: ["codex"] },
+        "POST",
+        auth,
+      )
+    ).status,
+    200,
+  );
+  assert.deepEqual((await call("coding", undefined, "GET")).data.connections, [
+    { provider: "codex", online: true },
+  ]);
+  await call("ingest", { buckets: [] }, "POST", auth);
+  assert.equal(
+    (await call("coding", undefined, "GET")).data.connections.length,
+    1,
+  );
+  await call("ingest", { buckets: [], codingProviders: [] }, "POST", auth);
+  assert.deepEqual(
+    (await call("coding", undefined, "GET")).data.connections,
+    [],
+  );
+  await call(
+    "ingest",
+    { buckets: [], codingProviders: ["codex"] },
+    "POST",
+    auth,
+  );
   const coding = {
     streamId: "11111111-1111-4111-8111-111111111111",
     buckets: [
@@ -70,10 +100,17 @@ try {
     (await call("coding", undefined, "GET")).data.rows[0].tokens,
     1234,
   );
-  const cursor = {streamId: "22222222-2222-4222-8222-222222222222", buckets: [{hour: b.hour, provider: "cursor", tokens: 0, workSeconds: 120}]};
+  const cursor = {
+    streamId: "22222222-2222-4222-8222-222222222222",
+    buckets: [
+      { hour: b.hour, provider: "cursor", tokens: 0, workSeconds: 120 },
+    ],
+  };
   assert.equal((await call("coding/ingest", cursor, "POST", auth)).status, 200);
   assert.equal((await call("coding/ingest", cursor, "POST", auth)).status, 200);
-  const cursorRow = (await call("coding", undefined, "GET")).data.rows.find(r => r.provider === "cursor");
+  const cursorRow = (await call("coding", undefined, "GET")).data.rows.find(
+    (r) => r.provider === "cursor",
+  );
   assert.equal(cursorRow.tokens, 0);
   assert.equal(cursorRow.seconds, 120);
   assert.equal(
@@ -152,8 +189,9 @@ try {
     200,
   );
   assert.equal(
-    (await call("coding?username=LOCAL-TEST", undefined, "GET")).data.rows.find(r => r.provider === "claude")
-      .tokens,
+    (await call("coding?username=LOCAL-TEST", undefined, "GET")).data.rows.find(
+      (r) => r.provider === "claude",
+    ).tokens,
     1234,
   );
   assert.equal(
@@ -197,6 +235,12 @@ try {
   assert.equal(pub.data.buckets[0].sessions, 0);
   assert.equal(pub.data.devices.length, 0);
   assert.ok(pub.data.buckets[0].hour.includes("T00:00:00"));
+  assert.deepEqual(
+    (await call("coding?username=local-test", undefined, "GET")).data
+      .connections,
+    [],
+  );
+
   assert.equal(
     (await call("devices/" + device.deviceId, {}, "DELETE")).status,
     200,
@@ -206,6 +250,10 @@ try {
     401,
   );
   assert.equal((await call("coding/ingest", coding, "POST", auth)).status, 401);
+  assert.deepEqual(
+    (await call("coding", undefined, "GET")).data.connections,
+    [],
+  );
   me = await call("me", undefined, "GET");
   assert.equal(
     me.data.buckets.reduce((n, b) => n + b.keystrokes, 0),

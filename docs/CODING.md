@@ -1,6 +1,6 @@
 # Coding activity
 
-TypeGrid 0.1.5 collects coding metrics inside the background Mac app. **No tracker terminal is required.**
+TypeGrid 0.1.6 collects coding metrics inside the background Mac app. **No tracker terminal is required.**
 
 1. Install or upgrade TypeGrid, then pair your Mac.
 2. Open Integrations on typegrid.dev and click **Connect**, or use Connect Codex / Connect Claude Code / Connect Cursor in the TypeGrid menu.

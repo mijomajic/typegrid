@@ -849,6 +849,7 @@ export function TypeGrid({
                     )}
                   </section>
                   <CodingConnections />
+                  {data.user && <CodingStats />}
                   <p className="muted integration-note">
                     <LockClosedIcon /> We won’t ask for session cookies or read
                     your chat history. Unsupported connections stay unavailable.

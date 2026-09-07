@@ -50,7 +50,7 @@ export function publicUser(u: any) {
 }
 export async function userBuckets(id: string, daily = false) {
   const rows =
-    await db()`SELECT ${daily ? db()`date_trunc('day',b.hour)` : db()`b.hour`} AS hour, SUM(b.keystrokes)::integer AS keystrokes, SUM(b.active_seconds)::integer AS "activeSeconds", SUM(b.sessions)::integer AS sessions, SUM(b.dev_keystrokes)::integer AS "devKeystrokes", MAX(b.peak_wpm)::integer AS "peakWpm" FROM buckets b JOIN devices d ON b.device_id=d.id WHERE d.user_id=${id} GROUP BY 1 ORDER BY 1`;
+    await db()`SELECT ${daily ? db()`date_trunc('day',b.hour,'UTC')` : db()`b.hour`} AS hour, SUM(b.keystrokes)::integer AS keystrokes, SUM(b.active_seconds)::integer AS "activeSeconds", SUM(b.sessions)::integer AS sessions, SUM(b.dev_keystrokes)::integer AS "devKeystrokes", MAX(b.peak_wpm)::integer AS "peakWpm" FROM buckets b JOIN devices d ON b.device_id=d.id WHERE d.user_id=${id} GROUP BY 1 ORDER BY 1`;
   return rows.map((r) => ({
     hour: new Date(r.hour).toISOString(),
     keystrokes: Number(r.keystrokes),

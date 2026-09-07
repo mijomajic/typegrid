@@ -51,17 +51,7 @@ export function Leaderboard() {
   const unit = metric === "tokens" ? "AI tokens" : "keystrokes";
   return (
     <section className="grid-rankings">
-      <header className="rankings-heading">
-        <span className="rankings-kicker">
-          <i /> THE GRID / HIGH SCORES
-        </span>
-        <h1>
-          Built different.
-          <br />
-          <span>Counted together.</span>
-        </h1>
-        <p>A little competition for the people behind the keyboard.</p>
-      </header>
+      <h1 className="sr-only">Leaderboard</h1>
       <div className="rankings-controls">
         <div
           role="group"

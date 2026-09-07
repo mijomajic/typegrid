@@ -3243,3 +3243,36 @@ textarea {
 @keyframes stage-arrive{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:650px){.rankings-controls{flex-direction:column;gap:10px}.rankings-heading h1{font-size:36px}.rankings-stage{padding:20px 0 0;height:300px}.stage-player{width:33.33%}.stage-user{font-size:10px}.stage-score{font-size:24px}.stage-plinth{padding:28px 5px 8px}.rankings-avatar{width:48px;height:48px}.stage-place-1 .rankings-avatar{width:64px;height:64px}.rankings-refresh{font-size:8px}.rankings-footer{flex-direction:column}.leader-tag{display:none}.grid-rankings td,.grid-rankings th{padding:12px}.stage-vacant .stage-unit{font-size:7px}}
 @media(prefers-reduced-motion:reduce){.stage-player{animation:none}.stage-player:hover .rankings-avatar{transform:none}}
+
+/* The workspace header, navigation and footer share one outer grid. */
+body:has(.app-layout) .header-inner,
+body:has(.app-layout) .app-layout,
+body:has(.app-layout) .footer {
+  width: 100%;
+  max-width: 1440px;
+  padding-inline: 32px;
+}
+body:has(.app-layout) .header { border-bottom: 0; }
+.app-layout .sidebar { border-right: 0; padding-right: 0; }
+.app-layout .workspace { min-width: 0; }
+.app-layout .grid-rankings { max-width: none; width: 100%; padding-top: 0; }
+.app-layout .rankings-controls,
+.app-layout .workspace-toolbar,
+.app-layout .integration,
+.app-layout .provider-card details,
+body:has(.app-layout) .footer { border-top: 0; border-bottom: 0; }
+.app-layout .workspace-toolbar { margin-bottom: 24px; padding-bottom: 0; }
+.coding-status-list { display: flex; flex-wrap: wrap; gap: 10px; margin-block: 18px; }
+@media (max-width: 650px) {
+  body:has(.app-layout) .header-inner,
+  body:has(.app-layout) .app-layout,
+  body:has(.app-layout) .footer { padding-inline: 20px; }
+}
+
+.coding-activity .metrics {
+  border: 0;
+  border-radius: 0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+}
+.coding-activity .metrics > div { padding-left: 0; border: 0; }
+.provider-top > .tag { margin-left: auto; white-space: nowrap; }

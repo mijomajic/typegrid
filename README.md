@@ -27,7 +27,7 @@ TypeGrid is a free, open-source stats network for developers and people who live
 - Public GitHub repository, follower and recent-event statistics
 - Data export, device revocation and account deletion
 
-**v0.1 is a public beta.** macOS is the first supported platform. AI integrations are researched and documented, but not enabled yet. No fake OAuth buttons or transcript scraping. [Integration support matrix →](docs/INTEGRATIONS.md)
+**v0.1 is a public beta.** macOS is the first supported platform. Optional Codex and Claude Code metrics and Cursor session time are available through the Mac agent. Connect each tool from Integrations and restart that tool once. No transcript scraping. [Integration support matrix →](docs/INTEGRATIONS.md)
 
 ## Install
 
