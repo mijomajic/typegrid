@@ -2050,9 +2050,9 @@ label {
 .provider-top .button{font-size:11px;padding:7px 10px;}
 .provider-mark{width:38px;height:38px;display:grid;place-items:center;border-radius:10px;background:#242427;border:1px solid #38383d;flex-shrink:0;}
 .provider-mark svg{width:25px;height:25px;}
-.provider-mark.claude{color:#e3a78e;background:#312521;border-color:#52372d;}
-.provider-mark.codex{color:#ededf0;}
-.provider-mark.cursor{color:#eeeeef;}
+.provider-mark.provider-claude{color:#e3a78e;background:#312521;border-color:#52372d;}
+.provider-mark.provider-codex{color:#ededf0;}
+.provider-mark.provider-cursor{color:#eeeeef;}
 .provider-card>p{font-size:12px;margin:19px 0 14px;line-height:1.5;}
 .provider-metrics{font:10px var(--font-geist-mono);color:#b6b6bf;display:flex;align-items:center;gap:7px;}
 .provider-metrics i{width:5px;height:5px;border-radius:50%;background:var(--accent);}

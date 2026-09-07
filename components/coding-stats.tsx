@@ -61,7 +61,7 @@ export function CodingStats({ username }: { username?: string }) {
 }
 function ProviderMark({ provider }: { provider: string }) {
   return (
-    <span className={"provider-mark " + provider}>
+    <span className={"provider-mark provider-" + provider}>
       <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
         {provider === "claude" ? (
           <g stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
