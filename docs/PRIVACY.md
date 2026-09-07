@@ -37,7 +37,7 @@ The foreground app’s bundle identifier is checked locally when the app changes
 
 GitHub OAuth requests `read:user`. We store GitHub’s stable numeric ID, login and avatar along with your editable TypeGrid profile. The access token is discarded after identifying you. Public GitHub API stats are fetched only when you connect/refresh the integration.
 
-Profiles are private by default. Public mode exposes username, GitHub-hosted avatar, bio, daily counts, derived achievements, levels and streaks. Detailed hourly patterns, sessions, device credentials and integration responses stay private. Avatar URLs are restricted to GitHub’s avatar host to prevent arbitrary tracking pixels.
+New profiles are public by default. Choose private during onboarding or in Settings. Existing users’ privacy choices are preserved. Public mode exposes username, GitHub-hosted avatar, bio, daily counts, derived achievements, levels and streaks. Detailed hourly patterns, sessions, device credentials and integration responses stay private. Avatar URLs are restricted to GitHub’s avatar host to prevent arbitrary tracking pixels.
 
 Sessions use random, hashed, revocable tokens, HttpOnly cookies, SameSite=Lax, Secure in production, and 30-day expiry. Mutation endpoints check Origin; device endpoints use independent bearer credentials and rate limits. There is no client-side authorization shortcut.
 

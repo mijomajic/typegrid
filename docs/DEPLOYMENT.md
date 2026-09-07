@@ -29,3 +29,9 @@ Publish the source release before deploying its pinned installer. Older agents
 continue syncing normally; rerun the install command to enable connection status.
 Connected means the paired agent reports the tool configured and its local receiver
 running; it does not prove the tool has exported usage yet.
+
+## v0.1.7 onboarding
+Apply the migration before deploying. Existing profile visibility is preserved.
+New profiles default public and must confirm visibility before pairing approval.
+The agent reports only whether Input Monitoring is available alongside its existing
+aggregate heartbeat. Publish the v0.1.7 source assets before deploying the installer.

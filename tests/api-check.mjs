@@ -20,7 +20,25 @@ async function call(path, body, method = "POST", extra = {}) {
 assert.equal((await call("auth/local", {})).status, 200);
 try {
   let me = await call("me", undefined, "GET");
+  assert.equal(me.data.user.isPublic, true);
+  assert.equal(me.data.user.onboardingReady, false);
+  assert.equal(
+    (await call("devices/approve", { code: "ABCDEFGH" })).status,
+    409,
+  );
+  assert.equal(
+    (
+      await call(
+        "profile",
+        { username: "local-test", avatar: "", bio: "", isPublic: false },
+        "PATCH",
+      )
+    ).status,
+    200,
+  );
+  me = await call("me", undefined, "GET");
   assert.equal(me.data.user.isPublic, false);
+  assert.equal(me.data.user.onboardingReady, true);
   const start = (await call("devices/start", {})).data;
   assert.equal(
     (await call("devices/poll", { secret: start.secret })).data.pending,
@@ -51,7 +69,7 @@ try {
     (
       await call(
         "ingest",
-        { buckets: [], codingProviders: ["codex"] },
+        { buckets: [], codingProviders: ["codex"], inputMonitoring: true },
         "POST",
         auth,
       )

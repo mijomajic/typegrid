@@ -16,18 +16,18 @@ curl -fsSL https://typegrid.dev/install.sh | sh
 
 To install without pairing: `curl -fsSL https://typegrid.dev/install.sh | TYPEGRID_NO_PAIR=1 sh`.
 
-## Pair
+## Pairing and recovery
 
 ```sh
 ~/.local/bin/typegrid pair
 ~/.local/bin/typegrid start
 ```
 
-The browser and terminal display an expiring pairing code. Only approve a code you initiated on your own machine. The browser never receives the long-lived device token. The server stores only its SHA-256 hash. Re-pairing resets the local queue to avoid attributing a previous account’s activity to another user.
+The installer handles pairing and startup automatically; the commands above are for manual recovery. The browser prefills the code. The browser and terminal display an expiring pairing code. Only approve a code you initiated on your own machine. The browser never receives the long-lived device token. The server stores only its SHA-256 hash. Re-pairing resets the local queue to avoid attributing a previous account’s activity to another user.
 
 ## Permissions and startup
 
-System Settings → Privacy & Security → Input Monitoring → add **TypeGrid.app** from Applications (use Command-Shift-G in the file picker). The installer creates `/Applications/TypeGrid.app` (or `~/Applications/TypeGrid.app` if the system Applications folder is not writable). Select that app, allow access, then run `typegrid restart`. The CLI is a symlink to the executable inside the app.
+System Settings → Privacy & Security → Input Monitoring → add **TypeGrid.app** from Applications (use Command-Shift-G in the file picker). The installer creates `/Applications/TypeGrid.app` (or `~/Applications/TypeGrid.app` if the system Applications folder is not writable). Select that app and allow access. The agent retries every five seconds. If macOS requires a relaunch, rerun the same installer command. The CLI is a symlink to the executable inside the app.
 
 `typegrid start` writes `~/Library/LaunchAgents/dev.typegrid.agent.plist`, starts the agent now, and launches at future login. The menu bar shows the dotted TypeGrid icon. Click it for today’s count, the dashboard, pause/resume, and quit. Pause lasts until restart; stop tracking persistently for the current login with `typegrid stop`. Quit is respected (no KeepAlive restart loop); it will start at the next login while the plist remains.
 

@@ -124,7 +124,7 @@ async function handler(
       // The OAuth token is intentionally never persisted.
       await createSession(users[0].id);
       await db()`DELETE FROM sessions WHERE expires_at<now()`;
-      return NextResponse.redirect(origin() + "/dashboard");
+      return NextResponse.redirect(origin() + "/connect");
     }
     if (
       path === "auth/local" &&
@@ -144,7 +144,7 @@ async function handler(
       if (!u) return json({ user: null, buckets: [], devices: [] });
       const [buckets, devices] = await Promise.all([
         userBuckets(u.id),
-        db()`SELECT id,name,last_seen AS "lastSeen" FROM devices WHERE user_id=${u.id} AND revoked=false ORDER BY created_at`,
+        db()`SELECT id,name,last_seen AS "lastSeen",input_monitoring AS "inputMonitoring" FROM devices WHERE user_id=${u.id} AND revoked=false ORDER BY created_at`,
       ]);
       return json({
         user: publicUser(u),
@@ -252,7 +252,7 @@ async function handler(
       return json({
         secret,
         code: code.slice(0, 4) + "-" + code.slice(4),
-        verificationUrl: origin() + "/connect",
+        verificationUrl: origin() + "/connect#pair=" + code,
         expiresIn: 600,
       });
     }
@@ -282,6 +282,8 @@ async function handler(
         for (const b of payload.buckets)
           await tx`INSERT INTO buckets(device_id,hour,keystrokes,active_seconds,sessions,dev_keystrokes,peak_wpm) VALUES(${d.id},${b.hour},${b.keystrokes},${b.activeSeconds},${b.sessions},${b.devKeystrokes},${b.peakWpm}) ON CONFLICT(device_id,hour) DO UPDATE SET keystrokes=GREATEST(buckets.keystrokes,excluded.keystrokes),active_seconds=GREATEST(buckets.active_seconds,excluded.active_seconds),sessions=GREATEST(buckets.sessions,excluded.sessions),dev_keystrokes=GREATEST(buckets.dev_keystrokes,excluded.dev_keystrokes),peak_wpm=GREATEST(buckets.peak_wpm,excluded.peak_wpm)`;
         await tx`UPDATE devices SET last_seen=now() WHERE id=${d.id}`;
+        if (payload.inputMonitoring !== undefined)
+          await tx`UPDATE devices SET input_monitoring=${payload.inputMonitoring} WHERE id=${d.id}`;
         if (payload.codingProviders !== undefined)
           await tx`UPDATE devices SET coding_providers=${payload.codingProviders} WHERE id=${d.id}`;
       });
@@ -302,6 +304,11 @@ async function handler(
     if (method !== "GET") checkOrigin(req);
     await rate("user:" + u.id, 120, 60);
     if (path === "devices/approve" && method === "POST") {
+      if (!u.onboarding_ready)
+        throw new HttpError(
+          409,
+          "Confirm your profile on Connect before pairing this Mac.",
+        );
       const { code } = z
         .strictObject({ code: z.string().min(8).max(9) })
         .parse(await body(req));
@@ -324,7 +331,7 @@ async function handler(
     }
     if (path === "profile" && method === "PATCH") {
       const p = profileSchema.parse(await body(req));
-      await db()`UPDATE users SET username=${p.username},avatar=${p.avatar},bio=${p.bio},is_public=${p.isPublic} WHERE id=${u.id}`;
+      await db()`UPDATE users SET username=${p.username},avatar=${p.avatar},bio=${p.bio},is_public=${p.isPublic},onboarding_ready=true WHERE id=${u.id}`;
       return json({ ok: true });
     }
     if (path.startsWith("devices/") && method === "DELETE") {

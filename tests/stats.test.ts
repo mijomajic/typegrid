@@ -90,3 +90,14 @@ test("agent status accepts only supported provider names and remains backward co
       false,
     );
 });
+
+test("permission heartbeat contains only a boolean", () => {
+  assert.equal(
+    ingestSchema.safeParse({ buckets: [], inputMonitoring: true }).success,
+    true,
+  );
+  assert.equal(
+    ingestSchema.safeParse({ buckets: [], inputMonitoring: "allowed" }).success,
+    false,
+  );
+});

@@ -48,3 +48,9 @@ ALTER TABLE coding_buckets DROP CONSTRAINT IF EXISTS coding_buckets_provider_che
 ALTER TABLE coding_buckets ADD CONSTRAINT coding_buckets_provider_check CHECK(provider IN ('claude','codex','cursor'));
 
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS coding_providers text[] NOT NULL DEFAULT ARRAY[]::text[];
+
+-- Existing privacy choices stay intact; only future accounts default public.
+ALTER TABLE users ALTER COLUMN is_public SET DEFAULT true;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_ready boolean NOT NULL DEFAULT true;
+ALTER TABLE users ALTER COLUMN onboarding_ready SET DEFAULT false;
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS input_monitoring boolean;

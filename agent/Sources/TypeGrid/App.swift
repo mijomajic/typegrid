@@ -62,10 +62,10 @@ func pair() throws {
             // Counters belong to a pairing. Never reattribute old activity to a different account.
             config.token = token; config.deviceId = id
             try save(config, to: configURL); try save([String: Bucket](), to: countersURL)
-            print("Connected. Run typegrid start to enable background tracking."); return
+            print("Mac paired successfully."); return
         }
     }
-    print("Pairing expired. Run typegrid pair to try again.")
+    throw codingSetupError("Pairing expired. Rerun the installer to try again.")
 }
 
 final class Agent: NSObject, NSApplicationDelegate {
@@ -151,8 +151,9 @@ final class Agent: NSObject, NSApplicationDelegate {
     }
     func installTap() {
         if !CGPreflightListenEventAccess() {
-            statusText = "Allow Input Monitoring, then restart TypeGrid"
+            statusText = "Allow TypeGrid in System Settings → Privacy & Security → Input Monitoring"
             CGRequestListenEventAccess()
+            if let settings = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") { NSWorkspace.shared.open(settings) }
             status.button?.toolTip = statusText
             return
         }
@@ -189,6 +190,7 @@ final class Agent: NSObject, NSApplicationDelegate {
         config = loadConfig()
         startCodingListeners()
         if config.deviceId != lastDevice { counter = Counter(); acknowledged = [:]; lastDevice = config.deviceId; codingListeners.values.forEach{$0.cancel()};codingListeners.removeAll();startCodingListeners() }
+        if tap == nil && CGPreflightListenEventAccess() { installTap() }
         appChanged(); counter.prune()
         if !codingInFlight, let files = try? FileManager.default.contentsOfDirectory(at:root,includingPropertiesForKeys:nil) {
             for file in files where file.lastPathComponent.hasPrefix("coding-") && file.pathExtension == "json" {
@@ -224,9 +226,9 @@ final class Agent: NSObject, NSApplicationDelegate {
         guard config.token != nil, !inFlight else { return }
         let pending = counter.buckets.values.filter { acknowledged[$0.hour] != $0 }.sorted { $0.hour < $1.hour }.prefix(48)
         let batch = Array(pending)
-        struct ActivityUpload: Encodable { let buckets: [Bucket]; let codingProviders: [String] }
+        struct ActivityUpload: Encodable { let buckets: [Bucket]; let codingProviders: [String]; let inputMonitoring: Bool }
         let providers = (config.codingProviders ?? []).filter { $0 == "cursor" || codingListeners[$0] != nil }
-        guard let data = try? JSONEncoder().encode(ActivityUpload(buckets: batch, codingProviders: providers)) else { return }
+        guard let data = try? JSONEncoder().encode(ActivityUpload(buckets: batch, codingProviders: providers, inputMonitoring: tap != nil && CGPreflightListenEventAccess())) else { return }
         inFlight = true
         let sendingDevice = config.deviceId
         request("/api/ingest", config: config, body: data) { [weak self] result in
@@ -262,6 +264,7 @@ func start() throws {
         let command = CommandLine.arguments.dropFirst().first ?? (Bundle.main.bundleIdentifier == "dev.typegrid.agent" ? "run" : "help")
         do {
             switch command {
+            case "version": print("0.1.7")
             case "is-paired": exit(loadConfig().token == nil ? 1 : 0)
             case "pair": try pair()
             case "connect", "disconnect":
@@ -282,8 +285,8 @@ func start() throws {
             case "start", "restart": try start()
             case "stop": _ = launch(["bootout", "gui/\(getuid())/dev.typegrid.agent"]); print("TypeGrid stopped. Run typegrid start to resume.")
             case "classify": var c = loadConfig(); c.classify = CommandLine.arguments.last != "off"; try save(c, to: configURL); print("App classification \(c.classify ? "on" : "off").")
-            case "status": let c = loadConfig(); print("TypeGrid 0.1.6\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
-            default: print("TypeGrid 0.1.6 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
+            case "status": let c = loadConfig(); print("TypeGrid 0.1.7\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
+            default: print("TypeGrid 0.1.7 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
             }
         } catch { fputs("TypeGrid: \(error.localizedDescription)\n", stderr); exit(1) }
     }

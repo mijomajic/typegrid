@@ -32,13 +32,19 @@ type User = {
   avatar: string;
   bio: string;
   isPublic: boolean;
+  onboardingReady: boolean;
   githubLogin: string;
   githubConnected: boolean;
 };
 type Data = {
   user: User | null;
   buckets: Bucket[];
-  devices: { id: string; name: string; lastSeen: string | null }[];
+  devices: {
+    id: string;
+    name: string;
+    lastSeen: string | null;
+    inputMonitoring?: boolean | null;
+  }[];
   github?: {
     repos: number;
     followers: number;
@@ -231,7 +237,10 @@ function Home() {
               <span className="mono install-label">
                 INSTALL TYPEGRID · MACOS
               </span>
-              <Command />
+              <p className="muted">
+                Start with GitHub sign-in. Your install command unlocks during
+                setup.
+              </p>
               <p className="install-note">
                 Paste into Terminal · macOS 13+ · Apple Command Line Tools
                 required
@@ -325,7 +334,10 @@ function Home() {
             <p>Install. Sign in. Watch your stats come alive.</p>
           </div>
           <div>
-            <Command />
+            <p className="muted">
+              Start with GitHub sign-in. Your install command unlocks during
+              setup.
+            </p>
             <p className="mono muted install-note">
               macOS 13+ · Apple Silicon & Intel · No Electron
             </p>
@@ -729,78 +741,7 @@ export function TypeGrid({
                   </div>
                 </>
               )}
-              {page === "connect" && (
-                <>
-                  <PageTitle
-                    eyebrow="WELCOME TO THE GRID"
-                    title="Connect your machine."
-                    text="Three small steps. Then your stats start moving."
-                  />
-                  <div className="steps">
-                    <section>
-                      <b>01</b>
-                      <div>
-                        <h3>Make it yours.</h3>
-                        <p>Sign in with GitHub. Your profile starts private.</p>
-                        {data.user ? (
-                          <span className="tag accent">
-                            <CheckIcon /> Signed in as @{data.user.username}
-                          </span>
-                        ) : (
-                          <SignIn />
-                        )}
-                      </div>
-                    </section>
-                    <section>
-                      <b>02</b>
-                      <div>
-                        <h3>Install the tiny agent.</h3>
-                        <p>
-                          Native Swift. No Electron. Runs quietly in your menu
-                          bar.
-                        </p>
-                        <Command />
-                        <p className="mono muted">
-                          macOS 13+ · Requires Apple Command Line Tools for this
-                          source release.
-                        </p>
-                        <a
-                          className="text-link"
-                          href={repo + "/blob/main/docs/INSTALL.md"}
-                        >
-                          Inspect the installer & source <ExternalLinkIcon />
-                        </a>
-                      </div>
-                    </section>
-                    <section>
-                      <b>03</b>
-                      <div>
-                        <h3>Pair. Allow. You’re on the Grid.</h3>
-                        <p>
-                          Run <code>typegrid pair</code>, then enter the code
-                          shown by the agent below. Approve Input Monitoring in
-                          macOS when prompted.
-                        </p>
-                        {data.user ? (
-                          <Pair
-                            action={action}
-                            onSuccess={() =>
-                              setNotice(
-                                "Machine connected. Your dashboard will update as you type.",
-                              )
-                            }
-                          />
-                        ) : (
-                          <p>Sign in to pair your machine.</p>
-                        )}
-                      </div>
-                    </section>
-                  </div>
-                  <Link href="/dashboard" className="button primary">
-                    Open your dashboard <ArrowRightIcon />
-                  </Link>
-                </>
-              )}
+              {page === "connect" && <Onboarding data={data} action={action} />}
               {page === "integrations" && (
                 <>
                   <PageTitle
@@ -961,54 +902,240 @@ function SignIn() {
       <a className="button primary" href="/api/auth/github">
         <GitHubLogoIcon /> Continue with GitHub <ArrowRightIcon />
       </a>
-      <p className="muted">Free forever. Private by default.</p>
+      <p className="muted">
+        New profiles appear on the leaderboard. You can choose a private profile
+        before installing.
+      </p>
     </div>
   );
 }
-function Pair({
+function Onboarding({
+  data,
   action,
-  onSuccess,
 }: {
-  action: (p: string, b?: unknown) => Promise<any>;
-  onSuccess: () => void;
+  data: Data;
+  action: (p: string, b?: unknown, method?: string) => Promise<any>;
 }) {
-  const [code, setCode] = useState(""),
-    [busy, setBusy] = useState(false);
+  const [code, setCode] = useState("");
+  const [manual, setManual] = useState(false);
+  const [isPublic, setPublic] = useState(data.user?.isPublic ?? true);
+  const [busy, setBusy] = useState(false);
+  const [approved, setApproved] = useState(false);
+  useEffect(() => {
+    const receiveCode = () => {
+      const incoming = new URLSearchParams(window.location.hash.slice(1)).get(
+        "pair",
+      );
+      const saved = sessionStorage.getItem("typegrid-pair");
+      if (incoming && /^[A-Z]{8}$/.test(incoming)) {
+        setApproved(false);
+        setCode(incoming);
+        sessionStorage.setItem("typegrid-pair", incoming);
+        history.replaceState(null, "", window.location.pathname);
+      } else if (saved && /^[A-Z]{8}$/.test(saved)) setCode(saved);
+    };
+    receiveCode();
+    window.addEventListener("hashchange", receiveCode);
+    return () => window.removeEventListener("hashchange", receiveCode);
+  }, []);
+  const ready = !!data.user?.onboardingReady;
+  const paired = approved || (data.devices.length > 0 && !code && !manual);
+  const live = data.devices.some(
+    (d) =>
+      d.lastSeen &&
+      Date.now() - Date.parse(d.lastSeen) < 30000 &&
+      d.inputMonitoring,
+  );
+  const active = !data.user ? 1 : !ready ? 2 : !paired ? 3 : 4;
   return (
-    <form
-      className="pair-form"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setBusy(true);
-        const r = await action("devices/approve", { code });
-        setBusy(false);
-        if (r) {
-          setCode("");
-          onSuccess();
-        }
-      }}
-    >
-      <label>
-        Pairing code
-        <input
-          required
-          minLength={8}
-          maxLength={9}
-          placeholder="ABCD-EFGH"
-          value={code}
-          onChange={(e) => setCode(e.target.value.toUpperCase())}
-        />
-      </label>
-      <button disabled={busy} className="button primary">
-        {busy ? (
-          <>
-            <Spinner /> Connecting
-          </>
-        ) : (
-          "Connect machine"
-        )}
-      </button>
-    </form>
+    <>
+      <PageTitle
+        eyebrow={"GET STARTED · STEP " + active + " OF 4"}
+        title="Your place on the Grid."
+        text="Sign in, choose your visibility, and run one command. We’ll guide you through the rest."
+      />
+      <div className="steps onboarding-steps">
+        <section>
+          <b>{data.user ? "✓" : "01"}</b>
+          <div>
+            <h3>Sign in with GitHub.</h3>
+            {data.user ? (
+              <p className="accent">Signed in as @{data.user.username}</p>
+            ) : (
+              <SignIn />
+            )}
+          </div>
+        </section>
+        <section aria-disabled={!data.user}>
+          <b>{ready ? "✓" : "02"}</b>
+          <div>
+            <h3>Choose your profile visibility.</h3>
+            {!data.user ? (
+              <p>Available after GitHub sign-in.</p>
+            ) : ready ? (
+              <p>
+                {data.user.isPublic
+                  ? "Public · Your counts appear on the leaderboard."
+                  : "Private · Your counts are visible only to you."}{" "}
+                <Link href="/settings">Change in Settings ↗</Link>
+              </p>
+            ) : (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setBusy(true);
+                  try {
+                    await action(
+                      "profile",
+                      {
+                        username: data.user!.username,
+                        avatar: data.user!.avatar,
+                        bio: data.user!.bio,
+                        isPublic,
+                      },
+                      "PATCH",
+                    );
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                <label className="onboarding-visibility">
+                  <input
+                    type="checkbox"
+                    checked={isPublic}
+                    onChange={(e) => setPublic(e.target.checked)}
+                  />
+                  Show my profile and counts on the leaderboard
+                </label>
+                <p>
+                  Public by default. Your username, avatar, daily counts and AI
+                  totals are public. Detailed activity and connected machines
+                  stay private. Uncheck to keep your profile private.
+                </p>
+                <button className="button primary" disabled={busy}>
+                  {busy ? "Saving…" : "Save and continue"}
+                </button>
+              </form>
+            )}
+          </div>
+        </section>
+        <section aria-disabled={!ready}>
+          <b>{paired ? "✓" : "03"}</b>
+          <div>
+            <h3>Install and pair your Mac.</h3>
+            {!ready ? (
+              <p>Confirm your profile to unlock installation.</p>
+            ) : paired ? (
+              <div>
+                <p>Mac paired. The installer starts TypeGrid automatically.</p>
+                <button
+                  className="text-link"
+                  onClick={() => {
+                    setApproved(false);
+                    setManual(true);
+                  }}
+                >
+                  Add another Mac
+                </button>
+              </div>
+            ) : (
+              <>
+                <p>
+                  Paste this command into Terminal. It installs TypeGrid, opens
+                  this page with your pairing code filled in, and starts the
+                  agent after you confirm.
+                </p>
+                <Command />
+                <p className="muted">
+                  macOS 13+ · Builds locally using Apple Command Line Tools. If
+                  those tools are missing, the installer opens their setup.
+                </p>
+                <a
+                  className="text-link"
+                  href={repo + "/blob/main/docs/INSTALL.md"}
+                >
+                  Inspect the installer ↗
+                </a>
+                {code || manual ? (
+                  <form
+                    className="pair-form"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      setBusy(true);
+                      try {
+                        const result = await action("devices/approve", {
+                          code,
+                        });
+                        if (result) {
+                          setApproved(true);
+                          setCode("");
+                          sessionStorage.removeItem("typegrid-pair");
+                        }
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                  >
+                    <label>
+                      Confirm the code matches your Terminal
+                      <input
+                        required
+                        pattern="[A-Za-z]{4}-?[A-Za-z]{4}"
+                        minLength={8}
+                        maxLength={9}
+                        value={code}
+                        onChange={(e) =>
+                          setCode(e.target.value.toUpperCase().trim())
+                        }
+                        placeholder="ABCD-EFGH"
+                        autoComplete="off"
+                      />
+                    </label>
+                    <button className="button primary" disabled={busy}>
+                      {busy ? "Pairing…" : "Pair this Mac"}
+                    </button>
+                  </form>
+                ) : (
+                  <button className="text-link" onClick={() => setManual(true)}>
+                    Already have a pairing code?
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </section>
+        <section aria-disabled={!ready || !paired}>
+          <b>{live ? "✓" : "04"}</b>
+          <div>
+            <h3>Allow counting. Start typing.</h3>
+            {!ready || !paired ? (
+              <p>Available once your Mac is paired.</p>
+            ) : (
+              <>
+                <p>
+                  {live
+                    ? "TypeGrid is running with Input Monitoring enabled. Type a few keys to see your first counts."
+                    : "In System Settings → Privacy & Security → Input Monitoring, enable TypeGrid.app. The agent retries automatically; keep the installer open until it finishes."}
+                </p>
+                {!live && (
+                  <p className="muted" role="status">
+                    Waiting for permission and the agent’s first sync. If macOS
+                    asks you to quit and reopen TypeGrid, rerun the same install
+                    command.
+                  </p>
+                )}
+                {live && (
+                  <Link href="/dashboard" className="button primary">
+                    Open your dashboard <ArrowRightIcon />
+                  </Link>
+                )}
+              </>
+            )}
+          </div>
+        </section>
+      </div>
+    </>
   );
 }
 function Activity({ buckets }: { buckets: Bucket[] }) {
@@ -1279,7 +1406,7 @@ function Privacy() {
         ],
         [
           "What other people can see",
-          "Profiles start private. If you opt in, your username, avatar, bio, daily totals, levels, achievements and streaks are public. Hourly patterns, session detail, devices and integration details stay private.",
+          "New profiles start public. You can choose private during setup or in Settings. Public profiles share your username, avatar, bio, daily totals, levels, achievements and streaks. Hourly patterns, session detail, devices and integration details stay private.",
         ],
         [
           "The honest limits",

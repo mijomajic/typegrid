@@ -20,7 +20,7 @@ TypeGrid is a free, open-source stats network for developers and people who live
 
 - Live keystroke counts, estimated words, active typing time, sessions and peak speed
 - Hourly patterns, daily records, streaks, XP, levels and achievements
-- GitHub sign-in, editable profiles, and opt-in public leaderboards
+- GitHub sign-in, editable profiles, and public leaderboards with an optional private profile
 - Daily, weekly, monthly and all-time rankings (UTC calendar periods)
 - Optional background Claude Code and Codex token stats, work-time counters, and a separate AI-token leaderboard ([setup](docs/CODING.md))
 - A native Swift macOS app with a dotted menu-bar icon, pause, background startup and offline retry
@@ -39,10 +39,13 @@ curl -fsSL https://typegrid.dev/install.sh | sh
 
 The installer downloads the versioned source release, verifies its SHA-256 checksum, and compiles the dependency-free Swift agent locally. It opens your browser for GitHub sign-in and pairing, then starts the menu-bar agent. Building from source avoids requiring an unsigned prebuilt binary to bypass Gatekeeper. The installer creates a locally ad-hoc-signed TypeGrid.app; Developer ID signing and notarization are not included.
 
-1. Enter the pairing code shown by your terminal on the Connect page.
-2. Grant **Input Monitoring** to **TypeGrid.app** in Applications in System Settings → Privacy & Security.
-3. Run `~/.local/bin/typegrid restart` after granting permission.
-4. Open [your dashboard](https://typegrid.dev/dashboard) and type normally.
+1. Open [Connect](https://typegrid.dev/connect) and sign in with GitHub.
+2. Confirm your visibility: new profiles are public by default; private is available.
+3. Run the single command above. Confirm the prefilled code matches your Terminal.
+4. Enable **TypeGrid.app** in System Settings → Privacy & Security → Input Monitoring. The agent starts automatically and retries when permission is granted.
+
+Apple Command Line Tools install once if needed. Repeat installs of the current
+version skip compilation. macOS permissions still require your confirmation.
 
 Inspect before installing:
 
@@ -63,7 +66,7 @@ macOS key-down event
 Hourly aggregate counters ── local queue, 30-day expiry
     │  HTTPS every 5 seconds, authenticated device
     ▼
-Next.js API → Postgres → live dashboard / opt-in leaderboard
+Next.js API → Postgres → live dashboard / public leaderboard
 ```
 
 No Electron. No key-code access. No event history. No window titles. No clipboard. No screens. No browsing history. No prompt logs. Foreground app identifiers are classified locally into **dev/general** and discarded. Classification is optional.

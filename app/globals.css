@@ -3276,3 +3276,9 @@ body:has(.app-layout) .footer { border-top: 0; border-bottom: 0; }
 }
 .coding-activity .metrics > div { padding-left: 0; border: 0; }
 .provider-top > .tag { margin-left: auto; white-space: nowrap; }
+
+.onboarding-steps section[aria-disabled="true"] { opacity: .45; }
+.onboarding-steps .onboarding-visibility { display: flex; align-items: center; gap: 10px; }
+.onboarding-visibility input { width: auto; accent-color: var(--accent); }
+.onboarding-steps .pair-form { margin-top: 24px; }
+.onboarding-steps .text-link { margin-top: 12px; }

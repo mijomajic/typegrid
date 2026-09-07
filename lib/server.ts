@@ -40,6 +40,7 @@ export async function createSession(id: string) {
 export function publicUser(u: any) {
   return {
     id: u.id,
+    onboardingReady: u.onboarding_ready,
     username: u.username,
     avatar: u.avatar,
     bio: u.bio,
