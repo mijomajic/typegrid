@@ -1,9 +1,9 @@
 # Coding activity
 
-TypeGrid 0.1.4 collects coding metrics inside the background Mac app. **No tracker terminal is required.**
+TypeGrid 0.1.5 collects coding metrics inside the background Mac app. **No tracker terminal is required.**
 
 1. Install or upgrade TypeGrid, then pair your Mac.
-2. Open Integrations on typegrid.dev and click **Connect on Mac**, or use Connect Codex / Connect Claude Code in the TypeGrid menu.
+2. Open Integrations on typegrid.dev and click **Connect**, or use Connect Codex / Connect Claude Code / Connect Cursor in the TypeGrid menu.
 3. Confirm the local setup and restart the coding tool once. Use it normally after that.
 
 The setup configures a metrics-only exporter in your user-level `~/.codex/config.toml` or `~/.claude/settings.json`. Existing unrelated settings are preserved. A conflicting telemetry configuration is left untouched with an error instead of being silently replaced. Provider sign-in remains inside the coding tool; TypeGrid never requests its credentials.
@@ -15,9 +15,11 @@ Command-line setup is also available, and returns immediately:
 ```sh
 ~/.local/bin/typegrid connect codex
 ~/.local/bin/typegrid connect claude
+~/.local/bin/typegrid connect cursor
 # Undo only TypeGrid-owned settings:
 ~/.local/bin/typegrid disconnect codex
 ~/.local/bin/typegrid disconnect claude
+~/.local/bin/typegrid disconnect cursor
 ```
 
 Codex desktop and CLI use the global Codex configuration; clients that override exporters or use a different configuration directory may not report. Existing desktop processes need a restart. A fresh model-completion export from the desktop app has not yet been verified on the development Mac; the local receiver and configuration are verified independently. Claude Code connects sessions that read its user settings. No historical transcript import is performed.
@@ -40,14 +42,14 @@ Local queue files contain only a TypeGrid device ID, provider, hour, token count
 
 Validated: native parser fixtures, repeated/out-of-order payloads, both CLI launchers, Codex configuration initialization, background receiver HTTP checks, HTTP API privacy/revocation/public ranking. A real model-completion export has not yet been verified on this Mac; no synthetic usage is added to your profile.
 
-## Other providers
+## Cursor
 
-Gemini CLI has official telemetry but its adapter is not shipped yet. Cursor's documented usage API requires team admin access; TypeGrid does not use private account scraping or a fake personal OAuth flow.
+Cursor connects through an additive `sessionEnd` entry in `~/.cursor/hooks.json`. Existing hooks are preserved. Only elapsed session duration is counted when the session ends, including idle time. A device-scoped hash of the session identifier prevents repeat delivery from counting twice; the raw identifier is not stored. No prompts, responses, paths, or error messages are retained. Personal token totals are not exposed by this hook. TypeGrid does not scrape accounts or invent a personal OAuth flow.
 
 ## Sources
 
 - [Claude Code metrics](https://code.claude.com/docs/en/monitoring-usage)
 - [Codex metrics and exporter configuration](https://developers.openai.com/codex/config-advanced/)
 - [Codex metric names](https://github.com/openai/codex/blob/main/codex-rs/otel/src/metrics/names.rs)
-- [Gemini CLI telemetry](https://geminicli.com/docs/cli/telemetry/)
+- [Cursor hooks](https://cursor.com/docs/hooks)
 - [Cursor Admin API](https://cursor.com/docs/account/teams/admin-api)

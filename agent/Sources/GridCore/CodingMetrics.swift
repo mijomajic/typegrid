@@ -5,6 +5,7 @@ public struct CodingBucket: Codable {
     public var provider: String
     public var tokens: Int = 0
     public var workSeconds: Double = 0
+    public init(hour:String,provider:String,tokens:Int=0,workSeconds:Double=0){self.hour=hour;self.provider=provider;self.tokens=tokens;self.workSeconds=workSeconds}
 }
 // Only these OTLP fields are decoded. Resources, identities, logs and traces are ignored.
 private struct Envelope: Decodable {

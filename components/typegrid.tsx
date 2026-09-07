@@ -789,40 +789,6 @@ export function TypeGrid({
                     )}
                   </section>
                   <CodingConnections />
-                  {[
-                    [
-                      "Gemini CLI",
-                      "Official OpenTelemetry supports token metrics. A metrics-only local adapter is planned.",
-                      "METRICS API",
-                      "https://geminicli.com/docs/cli/telemetry/",
-                    ],
-                    [
-                      "Cursor",
-                      "Usage APIs require team administrator access. There is no general personal usage OAuth connection here.",
-                      "TEAM API ONLY",
-                      "https://cursor.com/docs/account/teams/admin-api",
-                    ],
-                  ].map(([name, desc, status, url]) => (
-                    <section className="integration" key={name}>
-                      <div className="integration-icon pixel">
-                        {name.slice(0, 1)}
-                      </div>
-                      <div>
-                        <h3>
-                          {name} <span className="tag muted">{status}</span>
-                        </h3>
-                        <p>{desc}</p>
-                      </div>
-                      <a
-                        className="text-link"
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Docs <ExternalLinkIcon />
-                      </a>
-                    </section>
-                  ))}
                   <p className="muted integration-note">
                     <LockClosedIcon /> We won’t ask for session cookies or read
                     your chat history. Unsupported connections stay unavailable.

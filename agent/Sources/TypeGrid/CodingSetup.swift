@@ -1,6 +1,7 @@
 import Foundation
 func codingSetupError(_ message:String)->NSError {NSError(domain:"TypeGrid",code:1,userInfo:[NSLocalizedDescriptionKey:message])}
 func configureCoding(_ provider:String,disconnect:Bool=false) throws {
+ if provider == "cursor" {try configureCursor(disconnect);return}
  guard ["codex","claude"].contains(provider) else {throw codingSetupError("Choose codex or claude.")}
  var config=loadConfig()
  if disconnect && config.codingProviders?.contains(provider) != true {return}

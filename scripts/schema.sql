@@ -43,3 +43,6 @@ CREATE TABLE IF NOT EXISTS coding_buckets (
  PRIMARY KEY(device_id,stream_id,hour,provider)
 );
 CREATE INDEX IF NOT EXISTS coding_hour ON coding_buckets(hour);
+
+ALTER TABLE coding_buckets DROP CONSTRAINT IF EXISTS coding_buckets_provider_check;
+ALTER TABLE coding_buckets ADD CONSTRAINT coding_buckets_provider_check CHECK(provider IN ('claude','codex','cursor'));

@@ -63,7 +63,7 @@ export const codingSchema = z.strictObject({
             d <= Date.now() + 3600000
           );
         }),
-        provider: z.enum(["claude", "codex"]),
+        provider: z.enum(["claude", "codex", "cursor"]),
         tokens: z.number().int().min(0).max(1000000000),
         workSeconds: z.number().min(0).max(864000),
       }),

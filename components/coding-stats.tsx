@@ -34,13 +34,20 @@ export function CodingStats({ username }: { username?: string }) {
         {rows.map((r) => (
           <div key={r.provider}>
             <span>
-              {r.provider === "claude" ? "Claude Code" : "Codex"} · tokens
+              {r.provider === "cursor"
+                ? "Cursor · session time"
+                : (r.provider === "claude" ? "Claude Code" : "Codex") +
+                  " · tokens"}
             </span>
-            <strong>{r.tokens.toLocaleString()}</strong>
+            <strong>
+              {r.provider === "cursor"
+                ? Math.round(r.seconds / 60) + "m"
+                : r.tokens.toLocaleString()}
+            </strong>
             <small>
-              {Math.round(r.seconds / 60)} min{" "}
-              {r.provider === "claude" ? "active time" : "turn time"} · input +
-              output including cache
+              {r.provider === "cursor"
+                ? "Completed sessions · includes idle time"
+                : `${Math.round(r.seconds / 60)} min ${r.provider === "claude" ? "active time" : "turn time"} · input + output including cache`}
             </small>
           </div>
         ))}
@@ -52,41 +59,103 @@ export function CodingStats({ username }: { username?: string }) {
     </section>
   );
 }
-export function CodingConnections() {
+function ProviderMark({ provider }: { provider: string }) {
   return (
-    <>
-      {["claude", "codex"].map((provider) => (
-        <section className="integration" key={provider}>
-          <div className="integration-icon pixel">
-            {provider === "claude" ? "C" : "O"}
-          </div>
-          <div>
-            <h3>
-              {provider === "claude" ? "Claude Code" : "Codex"}{" "}
-              <span className="tag">MAC CONNECTION</span>
-            </h3>
-            <p>
-              Connect once. Use your coding tool normally. TypeGrid collects
-              tokens and {provider === "claude" ? "active time" : "turn time"}{" "}
-              in the background.
-            </p>
-            <p className="muted">
-              Restart {provider === "claude" ? "Claude Code" : "Codex"} once
-              after connecting. No tracker terminal needed. Requires TypeGrid
-              0.1.4.
-            </p>
-            <a className="button" href={"typegrid://connect/" + provider}>
-              Connect on Mac
+    <span className={"provider-mark " + provider}>
+      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        {provider === "claude" ? (
+          <g stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+            {Array.from({ length: 12 }, (_, i) => (
+              <path key={i} d="M16 4v7" transform={`rotate(${i * 30} 16 16)`} />
+            ))}
+          </g>
+        ) : provider === "codex" ? (
+          <g
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m11 9-7 7 7 7m10-14 7 7-7 7M18 7l-4 18" />
+          </g>
+        ) : (
+          <g stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
+            <path d="m6 7 21 9-10 3-4 9Z" fill="currentColor" />
+            <path d="m14 15 8 9" stroke="#151517" />
+          </g>
+        )}
+      </svg>
+    </span>
+  );
+}
+export function CodingConnections() {
+  const providers = [
+    {
+      id: "claude",
+      name: "Claude Code",
+      description: "Your coding sessions, in numbers.",
+      metrics: "Tokens · Active time",
+    },
+    {
+      id: "codex",
+      name: "Codex",
+      description: "Every turn adds to your story.",
+      metrics: "Tokens · Turn time",
+    },
+    {
+      id: "cursor",
+      name: "Cursor",
+      description: "See the time you spend building.",
+      metrics: "Session time",
+    },
+  ];
+  return (
+    <div className="provider-grid">
+      {providers.map((p) => (
+        <section className="provider-card" key={p.id}>
+          <div className="provider-top">
+            <ProviderMark provider={p.id} />
+            <div>
+              <h3>{p.name}</h3>
+              <span>macOS</span>
+            </div>
+            <a
+              className="button small"
+              href={"typegrid://connect/" + p.id}
+              aria-label={"Connect " + p.name}
+            >
+              Connect <span aria-hidden="true">↗</span>
             </a>
-            <p className="muted">
-              Your existing sign-in stays in the coding tool.{" "}
-              {provider === "codex"
-                ? "Uses the shared Codex configuration; desktop coverage depends on the app’s metrics exporter."
-                : "Connects new Claude Code sessions using your user settings."}
-            </p>
           </div>
+          <p>{p.description}</p>
+          <div className="provider-metrics">
+            <i />
+            {p.metrics}
+          </div>
+          <details>
+            <summary>
+              Setup details <span>+</span>
+            </summary>
+            <p>
+              Connect once, then restart {p.name}. TypeGrid runs in the
+              background with your existing sign-in. Requires the latest Mac
+              agent.
+            </p>
+            {p.id === "cursor" ? (
+              <p>
+                Uses Cursor’s session-end hook. Personal token totals aren’t
+                available through this connection. Session time includes idle
+                time.
+              </p>
+            ) : p.id === "codex" ? (
+              <p>
+                Uses Codex’s shared metrics settings. Desktop exports depend on
+                the installed app version.
+              </p>
+            ) : null}
+          </details>
         </section>
       ))}
-    </>
+    </div>
   );
 }

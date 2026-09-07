@@ -106,6 +106,8 @@ final class Agent: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(withTitle:"Connect Codex",action:#selector(connectCodex),keyEquivalent:"")
         menu.addItem(withTitle:"Connect Claude Code",action:#selector(connectClaude),keyEquivalent:"")
+        menu.addItem(withTitle:"Connect Cursor",action:#selector(connectCursor),keyEquivalent:"")
+        menu.addItem(withTitle:"Disconnect Cursor",action:#selector(disconnectCursor),keyEquivalent:"")
         menu.addItem(withTitle:"Disconnect Codex",action:#selector(disconnectCodex),keyEquivalent:"")
         menu.addItem(withTitle:"Disconnect Claude Code",action:#selector(disconnectClaude),keyEquivalent:"")
         menu.addItem(withTitle: "Open dashboard", action: #selector(dashboard), keyEquivalent: "")
@@ -126,13 +128,15 @@ final class Agent: NSObject, NSApplicationDelegate {
             catch {statusText="Coding receiver could not start. Check ports 43189/43190."}
         }
     }
+    @objc func connectCursor(){connectProvider("cursor")}
+    @objc func disconnectCursor(){try? configureCursor(true)}
     @objc func disconnectCodex(){try? configureCoding("codex",disconnect:true);startCodingListeners()}
     @objc func disconnectClaude(){try? configureCoding("claude",disconnect:true);startCodingListeners()}
     @objc func connectCodex(){ connectProvider("codex") }
     @objc func connectClaude(){ connectProvider("claude") }
     func connectProvider(_ provider:String) {
-        let alert=NSAlert();alert.messageText="Connect \(provider == "codex" ? "Codex" : "Claude Code") to TypeGrid?"
-        alert.informativeText="TypeGrid will configure the tool’s local metrics exporter. Only token totals and work time leave this Mac. Restart the coding tool once after connecting."
+        let alert=NSAlert();alert.messageText="Connect \(provider == "cursor" ? "Cursor" : provider == "codex" ? "Codex" : "Claude Code") to TypeGrid?"
+        alert.informativeText=provider == "cursor" ? "TypeGrid will add a session-end hook to Cursor. Only session duration is stored. Token usage is not available through this connection. Existing hooks stay intact." : "TypeGrid will configure the tool’s local metrics exporter. Only token totals and work time leave this Mac. Restart the coding tool once after connecting."
         alert.addButton(withTitle:"Connect");alert.addButton(withTitle:"Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else{return}
         do {try configureCoding(provider);startCodingListeners();let result=NSAlert();result.messageText="Connected. Restart your coding tool once.";result.informativeText="TypeGrid collects in the background. No tracker terminal is needed.";result.runModal()}
@@ -141,7 +145,7 @@ final class Agent: NSObject, NSApplicationDelegate {
     func application(_ application:NSApplication,open urls:[URL]) {
         for url in urls where url.scheme == "typegrid" && url.host == "connect" {
             let provider=url.path.trimmingCharacters(in:CharacterSet(charactersIn:"/"))
-            if ["codex","claude"].contains(provider){connectProvider(provider)}
+            if ["codex","claude","cursor"].contains(provider){connectProvider(provider)}
         }
     }
     func installTap() {
@@ -252,9 +256,11 @@ func start() throws {
             case "is-paired": exit(loadConfig().token == nil ? 1 : 0)
             case "pair": try pair()
             case "connect", "disconnect":
-                guard let provider=CommandLine.arguments.dropFirst(2).first else {throw codingSetupError("Choose codex or claude.")}
+                guard let provider=CommandLine.arguments.dropFirst(2).first else {throw codingSetupError("Choose codex, claude, or cursor.")}
                 try configureCoding(provider,disconnect:command == "disconnect")
                 print(command == "disconnect" ? "Disconnected. Restart the coding tool once." : "Connected in the background. Restart the coding tool once; you can close this terminal.")
+            case "cursor-session-end":
+                try? cursorSessionEnded();print("{}")
             case "track":
                 guard CommandLine.arguments.count >= 3 else { throw NSError(domain:"TypeGrid",code:1,userInfo:[NSLocalizedDescriptionKey:"Use typegrid track claude or typegrid track codex."]) }
                 try trackCoding(CommandLine.arguments[2],arguments:Array(CommandLine.arguments.dropFirst(3)))
@@ -267,8 +273,8 @@ func start() throws {
             case "start", "restart": try start()
             case "stop": _ = launch(["bootout", "gui/\(getuid())/dev.typegrid.agent"]); print("TypeGrid stopped. Run typegrid start to resume.")
             case "classify": var c = loadConfig(); c.classify = CommandLine.arguments.last != "off"; try save(c, to: configURL); print("App classification \(c.classify ? "on" : "off").")
-            case "status": let c = loadConfig(); print("TypeGrid 0.1.4\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
-            default: print("TypeGrid 0.1.4 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
+            case "status": let c = loadConfig(); print("TypeGrid 0.1.5\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
+            default: print("TypeGrid 0.1.5 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
             }
         } catch { fputs("TypeGrid: \(error.localizedDescription)\n", stderr); exit(1) }
     }

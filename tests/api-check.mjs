@@ -70,6 +70,12 @@ try {
     (await call("coding", undefined, "GET")).data.rows[0].tokens,
     1234,
   );
+  const cursor = {streamId: "22222222-2222-4222-8222-222222222222", buckets: [{hour: b.hour, provider: "cursor", tokens: 0, workSeconds: 120}]};
+  assert.equal((await call("coding/ingest", cursor, "POST", auth)).status, 200);
+  assert.equal((await call("coding/ingest", cursor, "POST", auth)).status, 200);
+  const cursorRow = (await call("coding", undefined, "GET")).data.rows.find(r => r.provider === "cursor");
+  assert.equal(cursorRow.tokens, 0);
+  assert.equal(cursorRow.seconds, 120);
   assert.equal(
     (await call("coding?username=local-test", undefined, "GET")).data.rows
       .length,
@@ -146,7 +152,7 @@ try {
     200,
   );
   assert.equal(
-    (await call("coding?username=LOCAL-TEST", undefined, "GET")).data.rows[0]
+    (await call("coding?username=LOCAL-TEST", undefined, "GET")).data.rows.find(r => r.provider === "claude")
       .tokens,
     1234,
   );
