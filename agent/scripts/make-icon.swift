@@ -9,11 +9,18 @@ for size in [16,32,128,256,512] {
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep:rep)
         let p = CGFloat(pixels)
-        NSColor(calibratedRed:0.055,green:0.075,blue:0.043,alpha:1).setFill()
-        NSBezierPath(roundedRect:NSRect(x:0,y:0,width:p,height:p),xRadius:p*0.21,yRadius:p*0.21).fill()
-        for x in 0..<3 { for y in 0..<3 {
-            NSColor(calibratedRed:0.71,green:0.96,blue:0.45,alpha: (x==0 && y==0) || (x==2 && y==2) ? 0.4 : 1).setFill()
-            NSBezierPath(roundedRect:NSRect(x:p*(0.2+CGFloat(x)*0.22),y:p*(0.2+CGFloat(y)*0.22),width:p*0.16,height:p*0.16),xRadius:p*0.02,yRadius:p*0.02).fill()
+        let inset = p * 0.075
+        let face = NSRect(x:inset,y:inset,width:p-2*inset,height:p-2*inset)
+        NSColor(calibratedWhite:0.105,alpha:1).setFill()
+        let tile = NSBezierPath(roundedRect:face,xRadius:p*0.19,yRadius:p*0.19)
+        tile.fill()
+        NSColor(calibratedWhite:0.27,alpha:1).setStroke()
+        tile.lineWidth = max(1,p*0.003); tile.stroke()
+        for row in 0..<5 { for col in 0..<5 {
+            let active = row == 0 || col == 2
+            if active { NSColor(calibratedRed:0.77,green:0.94,blue:0.54,alpha:1).setFill() }
+            else { NSColor(calibratedWhite:0.24,alpha:1).setFill() }
+            NSBezierPath(ovalIn:NSRect(x:p*(0.24+CGFloat(col)*0.11),y:p*(0.68-CGFloat(row)*0.11),width:p*0.065,height:p*0.065)).fill()
         }}
         NSGraphicsContext.restoreGraphicsState()
         let suffix = scale == 2 ? "@2x" : ""

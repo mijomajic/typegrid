@@ -61,8 +61,8 @@ function Logo() {
   return (
     <Link href="/" className="logo" aria-label="TypeGrid home">
       <span className="logomark">
-        {Array.from({ length: 9 }, (_, i) => (
-          <i key={i} />
+        {Array.from({ length: 25 }, (_, i) => (
+          <i key={i} className={i < 5 || i % 5 === 2 ? "" : "off"} />
         ))}
       </span>
       typegrid<span className="beta">BETA</span>
@@ -182,7 +182,7 @@ function Home() {
         <section className="container hero">
           <div className="hero-copy">
             <div className="eyebrow">
-              <i className="status-dot" /> YOUR MACHINE. YOUR SIGNAL.
+              <i className="status-dot" /> BUILT FOR MAC. CONNECTED TO THE GRID.
             </div>
             <h1>
               Every keystroke
@@ -192,14 +192,14 @@ function Home() {
               <span className="pixel">Make yours count.</span>
             </h1>
             <p>
-              A tiny agent. A live picture of your digital life.
+              Your Mac has a story. See it in numbers.
               <br />
               Turn everyday typing into stats, streaks, and a little friendly
               competition.
             </p>
             <div className="hero-actions">
               <Link href="/connect" className="button primary">
-                Connect to the Grid <ArrowRightIcon />
+                Get TypeGrid for Mac <ArrowRightIcon />
               </Link>
               <a className="button" href={repo}>
                 <GitHubLogoIcon /> Star on GitHub
@@ -570,10 +570,17 @@ export function TypeGrid({
                       <div className="two-col">
                         <section className="panel">
                           <div className="split">
-                            <h3>Your contribution to the Grid</h3>
+                            <h3>Typing activity</h3>
                             <span className="tag">LAST 12 WEEKS</span>
                           </div>
                           <Heatmap days={stats.days} />
+                          <div className="heatmap-legend">
+                            Less{" "}
+                            {[0.15, 0.35, 0.6, 1].map((n) => (
+                              <i key={n} style={{ opacity: n }} />
+                            ))}{" "}
+                            More
+                          </div>
                           <p className="muted">
                             Consistency looks good on you.
                           </p>

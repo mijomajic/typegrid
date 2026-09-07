@@ -79,9 +79,22 @@ final class Agent: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         lastDevice = config.deviceId
         if let data = try? Data(contentsOf: countersURL), let buckets = try? JSONDecoder().decode([String: Bucket].self, from: data) { counter = Counter(buckets: buckets) }
-        status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        status.button?.title = "TG · 0"
+        status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        let icon = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
+            NSColor.labelColor.setFill()
+            for row in 0..<5 { for col in 0..<5 {
+                if row == 0 || col == 2 {
+                    NSBezierPath(ovalIn: NSRect(x: 1 + CGFloat(col) * 3.3, y: 14.2 - CGFloat(row) * 3.3, width: 2.6, height: 2.6)).fill()
+                }
+            }}
+            return true
+        }
+        icon.isTemplate = true
+        status.button?.image = icon
+        status.button?.setAccessibilityLabel("TypeGrid")
         let menu = NSMenu()
+        menu.addItem(withTitle: "TypeGrid · starting", action: nil, keyEquivalent: "")
+        menu.addItem(.separator())
         menu.addItem(withTitle: "Open dashboard", action: #selector(dashboard), keyEquivalent: "")
         menu.addItem(withTitle: "Pause / resume", action: #selector(toggle), keyEquivalent: "")
         menu.addItem(withTitle: "Quit TypeGrid", action: #selector(quit), keyEquivalent: "")
@@ -95,7 +108,7 @@ final class Agent: NSObject, NSApplicationDelegate {
         if !CGPreflightListenEventAccess() {
             statusText = "Allow Input Monitoring, then restart TypeGrid"
             CGRequestListenEventAccess()
-            status.button?.title = "TG · allow access"
+            status.button?.toolTip = statusText
             return
         }
         tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly, eventsOfInterest: CGEventMask(1 << CGEventType.keyDown.rawValue), callback: { _, type, _, info in
@@ -114,7 +127,7 @@ final class Agent: NSObject, NSApplicationDelegate {
     }
     @objc func appChanged() { isDev = config.classify && devApps.contains(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "") }
     @objc func dashboard() { if let url = URL(string: config.server + "/dashboard") { NSWorkspace.shared.open(url) } }
-    @objc func toggle() { paused.toggle(); status.button?.title = paused ? "TG · paused" : "TG · active" }
+    @objc func toggle() { paused.toggle(); tick() }
     @objc func quit() { try? save(counter.buckets, to: countersURL); NSApplication.shared.terminate(nil) }
     func tick() {
         config = loadConfig()
@@ -123,7 +136,9 @@ final class Agent: NSObject, NSApplicationDelegate {
         do { try save(counter.buckets, to: countersURL) } catch { statusText = "Cannot save counters. Check disk space." }
         let today = ISO8601DateFormatter().string(from: Date()).prefix(10)
         let total = counter.buckets.values.filter { $0.hour.hasPrefix(today) }.reduce(0) { $0 + $1.keystrokes }
-        status.button?.title = paused ? "TG · paused" : tap == nil ? "TG · allow access" : "TG · \(total.formatted())"
+        status.menu?.items.first?.title = paused ? "Tracking paused" : tap == nil ? "Allow Input Monitoring" : "\(total.formatted()) keystrokes today"
+        status.menu?.items.first(where: { $0.action == #selector(toggle) })?.title = paused ? "Resume tracking" : "Pause tracking"
+        status.button?.appearsDisabled = paused || tap == nil
         status.button?.toolTip = "TypeGrid — \(statusText). We count. We don’t read."
         guard config.token != nil, !inFlight else { return }
         let pending = counter.buckets.values.filter { acknowledged[$0.hour] != $0 }.sorted { $0.hour < $1.hour }.prefix(48)
@@ -175,8 +190,8 @@ func start() throws {
             case "start", "restart": try start()
             case "stop": _ = launch(["bootout", "gui/\(getuid())/dev.typegrid.agent"]); print("TypeGrid stopped. Run typegrid start to resume.")
             case "classify": var c = loadConfig(); c.classify = CommandLine.arguments.last != "off"; try save(c, to: configURL); print("App classification \(c.classify ? "on" : "off").")
-            case "status": let c = loadConfig(); print("TypeGrid 0.1.1\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
-            default: print("TypeGrid 0.1.1 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
+            case "status": let c = loadConfig(); print("TypeGrid 0.1.2\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
+            default: print("TypeGrid 0.1.2 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
             }
         } catch { fputs("TypeGrid: \(error.localizedDescription)\n", stderr); exit(1) }
     }
