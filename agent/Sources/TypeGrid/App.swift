@@ -92,12 +92,7 @@ final class Agent: NSObject, NSApplicationDelegate {
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         let icon = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
             NSColor.labelColor.setFill()
-            for rect in [
-                NSRect(x: 1, y: 13, width: 16, height: 4),
-                NSRect(x: 3, y: 9, width: 12, height: 2),
-                NSRect(x: 7, y: 5, width: 4, height: 2),
-                NSRect(x: 7, y: 1, width: 4, height: 2)
-            ] { NSBezierPath(rect: rect).fill() }
+            BrandMark.path(in: NSRect(x: 0, y: 0, width: 18, height: 18)).fill()
             return true
         }
         icon.isTemplate = true

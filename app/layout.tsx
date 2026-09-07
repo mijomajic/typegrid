@@ -5,6 +5,7 @@ import { GeistPixelCircle } from "geist/font/pixel";
 import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://typegrid.dev"),
+  icons: { icon: [{ url: "/favicon.svg?v=loop-1", type: "image/svg+xml" }] },
   title: {
     default: "TypeGrid — Every keystroke counts.",
     template: "%s · TypeGrid",

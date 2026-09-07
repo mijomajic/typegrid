@@ -62,9 +62,10 @@ async function api(path: string, body?: unknown, method?: string) {
 function Logo() {
   return (
     <Link href="/" className="logo" aria-label="TypeGrid home">
-      <svg className="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
+      <svg className="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
         <path
-          d="M5 7h38v8H5zM9 19h30v5H9zM20 28h8v5h-8zM20 37h8v5h-8z"
+          d="M20 6H44Q48 6 51 9L55 13L45 23L41 19H23L19 23V41L23 45H41L45 41V37H32V27H58V45Q58 49 55 52L52 55Q49 58 45 58H19Q15 58 12 55L9 52Q6 49 6 45V19Q6 15 9 12L12 9Q15 6 20 6Z"
+          transform="rotate(-45 32 32)"
           fill="currentColor"
         />
       </svg>

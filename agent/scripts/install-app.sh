@@ -38,7 +38,8 @@ cat > "$TYPEGRID_APP/Contents/Info.plist" <<'PLIST'
 PLIST
 TYPEGRID_ICON_TMP=$(mktemp -d)
 trap 'rm -rf "$TYPEGRID_ICON_TMP"' EXIT HUP INT TERM
-swift "$TYPEGRID_AGENT_DIR/scripts/make-icon.swift" "$TYPEGRID_ICON_TMP/TypeGrid.iconset"
+swiftc -parse-as-library "$TYPEGRID_AGENT_DIR/Sources/TypeGrid/BrandMark.swift" "$TYPEGRID_AGENT_DIR/scripts/make-icon.swift" -o "$TYPEGRID_ICON_TMP/make-icon"
+"$TYPEGRID_ICON_TMP/make-icon" "$TYPEGRID_ICON_TMP/TypeGrid.iconset"
 iconutil -c icns "$TYPEGRID_ICON_TMP/TypeGrid.iconset" -o "$TYPEGRID_APP/Contents/Resources/TypeGrid.icns"
 # Local ad-hoc signing is not Developer ID signing or notarization.
 codesign --force --deep --sign - --identifier dev.typegrid.agent "$TYPEGRID_APP"
