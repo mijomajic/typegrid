@@ -154,7 +154,7 @@ async function handler(
       });
     }
     if (path.startsWith("profile/") && method === "GET") {
-      const username = path.split("/")[1];
+      const username = path.split("/")[1].toLowerCase();
       const users =
         await db()`SELECT * FROM users WHERE username=${username} AND is_public=true`;
       if (!users[0]) return json({ user: null, buckets: [], devices: [] }, 404);

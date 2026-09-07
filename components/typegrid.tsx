@@ -52,6 +52,7 @@ async function api(path: string, body?: unknown, method?: string) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const d = await r.json();
+  if (r.status === 404 && path.startsWith("profile/")) return empty;
   if (!r.ok)
     throw new Error(d.error || "Something went wrong. Please try again.");
   return d;
@@ -900,7 +901,7 @@ export function TypeGrid({
                     </>
                   ) : (
                     <PageTitle
-                      title="This node is private."
+                      title="Profile unavailable."
                       text="This profile is private or doesn’t exist."
                     />
                   )}
@@ -1160,7 +1161,13 @@ function Settings({
           setSaved(false);
           setSaveError("");
           try {
-            await api("profile", { username, bio, avatar, isPublic }, "PATCH");
+            const canonicalUsername = username.trim().toLowerCase();
+            await api(
+              "profile",
+              { username: canonicalUsername, bio, avatar, isPublic },
+              "PATCH",
+            );
+            setUsername(canonicalUsername);
             await refresh();
             setSaved(true);
           } catch (error) {
@@ -1180,7 +1187,7 @@ function Settings({
             onChange={(e) => setUsername(e.target.value)}
           />
           <small>
-            3–24 lowercase letters, numbers, underscores or hyphens.
+            3–24 letters, numbers, underscores or hyphens. Saved in lowercase.
           </small>
         </label>
         <label>

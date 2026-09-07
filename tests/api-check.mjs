@@ -107,6 +107,15 @@ try {
   assert.match(invalidProfile.data.error, /Username must be/);
   assert.equal((await call("me", undefined, "GET")).data.user.isPublic, false);
   assert.equal((await call("profile", profile, "PATCH")).status, 200);
+  assert.equal(
+    (await call("profile", { ...profile, username: "Local-Test" }, "PATCH"))
+      .status,
+    200,
+  );
+  assert.equal(
+    (await call("profile/LOCAL-TEST", undefined, "GET")).status,
+    200,
+  );
   const savedProfile = (await call("me", undefined, "GET")).data.user;
   assert.equal(savedProfile.isPublic, true);
   assert.equal(savedProfile.bio, profile.bio);

@@ -29,6 +29,8 @@ export const ingestSchema = z.strictObject({
 export const profileSchema = z.strictObject({
   username: z
     .string()
+    .trim()
+    .toLowerCase()
     .regex(
       /^[a-z0-9_-]{3,24}$/,
       "Username must be 3–24 lowercase letters, numbers, underscores or hyphens.",
