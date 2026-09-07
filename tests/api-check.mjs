@@ -174,6 +174,23 @@ try {
   );
   let lb = await call("leaderboard?period=all", undefined, "GET");
   assert.ok(!lb.data.rows.some((r) => r.username === "local-test"));
+  const privateOwn = await call("profile/local-test", undefined, "GET");
+  assert.equal(privateOwn.status, 200);
+  assert.equal(privateOwn.data.detailed, true);
+  const privatePreview = await call(
+    "profile/local-test?view=public",
+    undefined,
+    "GET",
+  );
+  assert.equal(privatePreview.status, 200);
+  assert.equal(privatePreview.data.detailed, false);
+  const savedCookie = cookie;
+  cookie = "";
+  assert.equal(
+    (await call("profile/local-test", undefined, "GET")).status,
+    404,
+  );
+  cookie = savedCookie;
   const profile = {
     username: "local-test",
     avatar: "",
@@ -249,9 +266,29 @@ try {
     4,
     "Displayed level uses lifetime XP, independent of leaderboard period",
   );
-  const pub = await call("profile/local-test", undefined, "GET");
+  const own = await call("profile/local-test", undefined, "GET");
+  assert.equal(own.data.isOwner, true);
+  assert.equal(own.data.detailed, true);
+  assert.ok(own.data.buckets.some((b) => b.sessions > 0));
+  assert.ok(own.data.codingHistory.some((r) => r.tokens > 0));
+  const pub = await call("profile/local-test?view=public", undefined, "GET");
   assert.equal(pub.data.buckets[0].sessions, 0);
   assert.equal(pub.data.devices.length, 0);
+  assert.equal(pub.data.detailed, false);
+  assert.ok(pub.data.codingHistory.every((r) => r.seconds === 0));
+  const ownerCookie = cookie;
+  cookie = "";
+  const visitor = await call("profile/local-test", undefined, "GET");
+  assert.equal(visitor.status, 200);
+  assert.equal(visitor.data.detailed, false);
+  assert.equal(visitor.data.isOwner, false);
+  assert.equal(visitor.data.viewer, null);
+  assert.ok(
+    visitor.data.buckets.every(
+      (b) => b.sessions === 0 && b.activeSeconds === 0 && b.peakWpm === 0,
+    ),
+  );
+  cookie = ownerCookie;
   assert.ok(pub.data.buckets[0].hour.includes("T00:00:00"));
   assert.deepEqual(
     (await call("coding?username=local-test", undefined, "GET")).data

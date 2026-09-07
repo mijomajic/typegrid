@@ -20,6 +20,7 @@ TypeGrid is a free, open-source stats network for developers and people who live
 
 - Live keystroke counts, estimated words, active typing time, sessions and peak speed
 - Hourly patterns, daily records, streaks, XP, levels and achievements
+- Your own profile preview, with all synced history, date filters and daily/monthly totals
 - GitHub sign-in, editable profiles, and public leaderboards with an optional private profile
 - Daily, weekly, monthly and all-time rankings (UTC calendar periods)
 - Optional background Claude Code and Codex token stats, work-time counters, and a separate AI-token leaderboard ([setup](docs/CODING.md))

@@ -52,3 +52,8 @@ No tracker can guarantee mathematically exact counts across hardware, permission
 ## Optional coding activity
 
 When you connect Claude Code or Codex to TypeGrid, a local metrics-only receiver reduces documented counters to hourly token totals and work seconds. Provider credentials remain with the coding tool. No prompts or transcripts are stored or uploaded. Public profiles include AI totals. See [coding activity](CODING.md) for exact metric meanings and limitations.
+
+Your profile history includes all synced daily keystroke and AI token totals.
+Only the signed-in owner can access hourly activity, active typing time, sessions,
+peak speed and AI time details. The public-appearance preview uses the public
+response shape even for the owner. A private profile remains inaccessible to others.

@@ -155,25 +155,40 @@ async function handler(
     }
     if (path.startsWith("profile/") && method === "GET") {
       const username = path.split("/")[1].toLowerCase();
+      const viewer = await getUser();
       const users =
-        await db()`SELECT * FROM users WHERE username=${username} AND is_public=true`;
+        await db()`SELECT * FROM users WHERE username=${username} AND (is_public=true OR id=${viewer?.id ?? null})`;
       if (!users[0]) return json({ user: null, buckets: [], devices: [] }, 404);
-      const u = users[0];
-      const buckets = await userBuckets(u.id, true);
+      const u = users[0],
+        isOwner = viewer?.id === u.id;
+      const detailed = isOwner && url.searchParams.get("view") !== "public";
+      const [buckets, coding] = await Promise.all([
+        userBuckets(u.id, !detailed),
+        db()`SELECT date_trunc('day',b.hour,'UTC') AS day,b.provider,SUM(b.tokens)::bigint AS tokens,SUM(b.work_seconds) AS seconds FROM coding_buckets b JOIN devices d ON d.id=b.device_id WHERE d.user_id=${u.id} GROUP BY 1,2 ORDER BY 1,2`,
+      ]);
       return json({
         user: {
           username: u.username,
           avatar: u.avatar,
           bio: u.bio,
-          isPublic: true,
+          isPublic: u.is_public,
         },
-        buckets: buckets.map((b) => ({
-          hour: b.hour,
-          keystrokes: b.keystrokes,
-          activeSeconds: 0,
-          sessions: 0,
-          devKeystrokes: b.devKeystrokes,
-          peakWpm: 0,
+        viewer: viewer ? publicUser(viewer) : null,
+        isOwner,
+        detailed,
+        buckets: detailed
+          ? buckets
+          : buckets.map((b) => ({
+              ...b,
+              activeSeconds: 0,
+              sessions: 0,
+              peakWpm: 0,
+            })),
+        codingHistory: coding.map((r) => ({
+          day: new Date(r.day).toISOString().slice(0, 10),
+          provider: r.provider,
+          tokens: Number(r.tokens),
+          seconds: detailed ? Number(r.seconds) : 0,
         })),
         devices: [],
       });

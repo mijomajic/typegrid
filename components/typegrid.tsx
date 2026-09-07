@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { ProfileHistory, type CodingDay } from "./profile-history";
 import { Leaderboard } from "./leaderboard";
 import { CodingStats, CodingConnections } from "./coding-stats";
 import { useEffect, useRef, useState } from "react";
@@ -37,6 +38,10 @@ type User = {
   githubConnected: boolean;
 };
 type Data = {
+  viewer?: User | null;
+  isOwner?: boolean;
+  detailed?: boolean;
+  codingHistory?: CodingDay[];
   user: User | null;
   buckets: Bucket[];
   devices: {
@@ -453,12 +458,20 @@ export function TypeGrid({
   const [data, setData] = useState<Data>(empty),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
-    [notice, setNotice] = useState("");
+    [notice, setNotice] = useState(""),
+    [preview, setPreview] = useState(false);
   const refresh = async () => {
     try {
-      setData(await api(page === "u" ? "profile/" + username : "me"));
+      setData(
+        await api(
+          page === "u"
+            ? "profile/" + username + (preview ? "?view=public" : "")
+            : "me",
+        ),
+      );
       setError("");
     } catch (e) {
+      if (page === "u") setData(empty);
       setError((e as Error).message);
     } finally {
       setLoading(false);
@@ -474,8 +487,9 @@ export function TypeGrid({
       if (!document.hidden) refresh();
     }, 5000);
     return () => clearInterval(id);
-  }, [page, username]);
+  }, [page, username, preview]);
   if (page === "home") return <Home />;
+  const viewer = page === "u" ? data.viewer : data.user;
   const stats = summarize(data.buckets);
   const today = new Date().toISOString().slice(0, 10);
   const todayBuckets = data.buckets.filter((b) => b.hour.startsWith(today));
@@ -516,22 +530,33 @@ export function TypeGrid({
               {String(label)}
             </Link>
           ))}
+          {viewer && (
+            <Link
+              href={"/u/" + viewer.username}
+              className={page === "u" && data.isOwner ? "active" : ""}
+            >
+              <GlobeIcon />
+              My profile
+            </Link>
+          )}
           <div className="sidebar-bottom">
-            <div className="agent-status">
-              <i className={online ? "status-dot" : "status-dot offline"} />
-              {online ? "Agent connected" : "Agent offline"}
-            </div>
+            {page !== "u" && (
+              <div className="agent-status">
+                <i className={online ? "status-dot" : "status-dot offline"} />
+                {online ? "Agent connected" : "Agent offline"}
+              </div>
+            )}
             <Link href="/connect">
               <DesktopIcon /> Connect a machine <ArrowRightIcon />
             </Link>
-            {data.user && (
-              <div className="account">
-                <div className="avatar">{data.user.username.slice(0, 2)}</div>
+            {viewer && (
+              <Link className="account" href={"/u/" + viewer.username}>
+                <div className="avatar">{viewer.username.slice(0, 2)}</div>
                 <span>
-                  @{data.user.username}
-                  <small>Level {stats.level}</small>
+                  @{viewer.username}
+                  <small>View your profile</small>
                 </span>
-              </div>
+              </Link>
             )}
           </div>
         </aside>
@@ -815,6 +840,29 @@ export function TypeGrid({
                 <>
                   {data.user ? (
                     <>
+                      {data.isOwner && (
+                        <div className="workspace-toolbar">
+                          <span className="tag">
+                            {data.user.isPublic
+                              ? "Public profile"
+                              : "Private · only you can view this"}
+                          </span>
+                          <div className="profile-actions">
+                            <button
+                              className="button small"
+                              aria-pressed={preview}
+                              onClick={() => setPreview(!preview)}
+                            >
+                              {preview
+                                ? "Back to my stats"
+                                : "Preview public appearance"}
+                            </button>
+                            <Link className="button small" href="/settings">
+                              Edit profile
+                            </Link>
+                          </div>
+                        </div>
+                      )}
                       <div className="profile-head">
                         <div className="avatar large">
                           {data.user.avatar ? (
@@ -849,7 +897,11 @@ export function TypeGrid({
                           <strong>{stats.level}</strong>
                         </div>
                       </div>
-                      <CodingStats username={username} />
+                      <ProfileHistory
+                        buckets={data.buckets}
+                        coding={data.codingHistory ?? []}
+                        detailed={!!data.detailed}
+                      />
                       <Heatmap days={stats.days} />
                       <div className="badge-row">
                         {achievements
