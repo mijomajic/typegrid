@@ -105,6 +105,27 @@ try {
       (r) => r.username === "local-test" && r.keystrokes === 140,
     ),
   );
+  const oldHour = new Date(hour.getTime() - 2 * 86400000).toISOString();
+  assert.equal(
+    (
+      await call(
+        "ingest",
+        { buckets: [{ ...b, hour: oldHour, keystrokes: 10000 }] },
+        "POST",
+        auth,
+      )
+    ).status,
+    200,
+  );
+  const todayRank = (
+    await call("leaderboard?period=day", undefined, "GET")
+  ).data.rows.find((r) => r.username === "local-test");
+  assert.equal(todayRank.keystrokes, 140);
+  assert.equal(
+    todayRank.level,
+    4,
+    "Displayed level uses lifetime XP, independent of leaderboard period",
+  );
   const pub = await call("profile/local-test", undefined, "GET");
   assert.equal(pub.data.buckets[0].sessions, 0);
   assert.equal(pub.data.devices.length, 0);
@@ -118,7 +139,10 @@ try {
     401,
   );
   me = await call("me", undefined, "GET");
-  assert.equal(me.data.buckets[0].keystrokes, 140);
+  assert.equal(
+    me.data.buckets.reduce((n, b) => n + b.keystrokes, 0),
+    10140,
+  );
   const exported = await call("export", undefined, "GET");
   assert.equal(exported.status, 200);
   assert.equal(JSON.stringify(exported.data).includes(device.token), false);

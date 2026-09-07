@@ -189,13 +189,13 @@ async function handler(
       if (period === "month") start.setUTCDate(1);
       if (period === "all") start.setTime(0);
       const rows =
-        await db()`SELECT u.username,SUM(b.keystrokes)::bigint AS keystrokes FROM users u JOIN devices d ON d.user_id=u.id JOIN buckets b ON b.device_id=d.id WHERE u.is_public=true AND b.hour>=${start.toISOString()} GROUP BY u.id HAVING SUM(b.keystrokes)>0 ORDER BY SUM(b.keystrokes) DESC,u.username LIMIT 100`;
+        await db()`SELECT u.username, SUM(b.keystrokes) FILTER (WHERE b.hour>=${start.toISOString()})::bigint AS keystrokes, SUM(b.keystrokes)::bigint AS lifetime FROM users u JOIN devices d ON d.user_id=u.id JOIN buckets b ON b.device_id=d.id WHERE u.is_public=true GROUP BY u.id HAVING SUM(b.keystrokes) FILTER (WHERE b.hour>=${start.toISOString()})>0 ORDER BY keystrokes DESC,u.username LIMIT 100`;
       return json({
         rows: rows.map((r) => ({
           username: r.username,
           keystrokes: Number(r.keystrokes),
           level:
-            Math.floor(Math.sqrt(Math.floor(Number(r.keystrokes) / 10) / 100)) +
+            Math.floor(Math.sqrt(Math.floor(Number(r.lifetime) / 10) / 100)) +
             1,
         })),
       });
