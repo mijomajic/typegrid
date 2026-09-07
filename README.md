@@ -36,10 +36,10 @@ macOS 13+, Apple Silicon or Intel, with [Apple Command Line Tools](https://devel
 curl -fsSL https://typegrid.dev/install.sh | sh
 ```
 
-The installer downloads the versioned source release, verifies its SHA-256 checksum, and compiles the dependency-free Swift agent locally. It opens your browser for GitHub sign-in and pairing, then starts the menu-bar agent. Building from source avoids requiring an unsigned prebuilt binary to bypass Gatekeeper. There is no notarized app bundle in this release.
+The installer downloads the versioned source release, verifies its SHA-256 checksum, and compiles the dependency-free Swift agent locally. It opens your browser for GitHub sign-in and pairing, then starts the menu-bar agent. Building from source avoids requiring an unsigned prebuilt binary to bypass Gatekeeper. The installer creates a locally ad-hoc-signed TypeGrid.app; Developer ID signing and notarization are not included.
 
 1. Enter the pairing code shown by your terminal on the Connect page.
-2. Grant **Input Monitoring** to the installed `typegrid` executable in System Settings → Privacy & Security.
+2. Grant **Input Monitoring** to **TypeGrid.app** in Applications in System Settings → Privacy & Security.
 3. Run `~/.local/bin/typegrid restart` after granting permission.
 4. Open [your dashboard](https://typegrid.dev/dashboard) and type normally.
 
@@ -51,7 +51,7 @@ less /tmp/typegrid-install.sh
 sh /tmp/typegrid-install.sh
 ```
 
-The executable goes in `~/.local/bin`. Add that directory to your PATH if necessary. See [installation, startup, troubleshooting and uninstall](docs/INSTALL.md).
+The app goes in `/Applications/TypeGrid.app` (or `~/Applications` when needed), with a CLI symlink in `~/.local/bin`. Add that directory to your PATH if necessary. See [installation, startup, troubleshooting and uninstall](docs/INSTALL.md).
 
 ## Small by design
 

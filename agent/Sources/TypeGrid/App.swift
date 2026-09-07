@@ -161,9 +161,10 @@ func start() throws {
 }
 @main struct Main {
     static func main() {
-        let command = CommandLine.arguments.dropFirst().first ?? "help"
+        let command = CommandLine.arguments.dropFirst().first ?? (Bundle.main.bundleIdentifier == "dev.typegrid.agent" ? "run" : "help")
         do {
             switch command {
+            case "is-paired": exit(loadConfig().token == nil ? 1 : 0)
             case "pair": try pair()
             case "run":
                 try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -174,8 +175,8 @@ func start() throws {
             case "start", "restart": try start()
             case "stop": _ = launch(["bootout", "gui/\(getuid())/dev.typegrid.agent"]); print("TypeGrid stopped. Run typegrid start to resume.")
             case "classify": var c = loadConfig(); c.classify = CommandLine.arguments.last != "off"; try save(c, to: configURL); print("App classification \(c.classify ? "on" : "off").")
-            case "status": let c = loadConfig(); print("TypeGrid 0.1.0\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
-            default: print("TypeGrid 0.1.0 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
+            case "status": let c = loadConfig(); print("TypeGrid 0.1.1\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
+            default: print("TypeGrid 0.1.1 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
             }
         } catch { fputs("TypeGrid: \(error.localizedDescription)\n", stderr); exit(1) }
     }

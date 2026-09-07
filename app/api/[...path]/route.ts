@@ -366,7 +366,9 @@ async function handler(
       return json(
         {
           error:
-            "Invalid data. Only the documented aggregate fields are accepted.",
+            req.method === "PATCH"
+              ? e.issues.map((issue) => issue.message).join(" ")
+              : "Invalid data. Only the documented aggregate fields are accepted.",
           details: e.issues.map((i) => ({ path: i.path, message: i.message })),
         },
         400,

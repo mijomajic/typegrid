@@ -27,8 +27,13 @@ export const ingestSchema = z.strictObject({
   buckets: z.array(bucketSchema).max(48),
 });
 export const profileSchema = z.strictObject({
-  username: z.string().regex(/^[a-z0-9_-]{3,24}$/),
-  bio: z.string().max(160),
+  username: z
+    .string()
+    .regex(
+      /^[a-z0-9_-]{3,24}$/,
+      "Username must be 3–24 lowercase letters, numbers, underscores or hyphens.",
+    ),
+  bio: z.string().max(160, "Bio must be 160 characters or fewer."),
   avatar: z
     .string()
     .max(250)

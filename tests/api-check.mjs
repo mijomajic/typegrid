@@ -98,7 +98,19 @@ try {
     ).status,
     403,
   );
+  const invalidProfile = await call(
+    "profile",
+    { ...profile, username: "@Bad Name" },
+    "PATCH",
+  );
+  assert.equal(invalidProfile.status, 400);
+  assert.match(invalidProfile.data.error, /Username must be/);
+  assert.equal((await call("me", undefined, "GET")).data.user.isPublic, false);
   assert.equal((await call("profile", profile, "PATCH")).status, 200);
+  const savedProfile = (await call("me", undefined, "GET")).data.user;
+  assert.equal(savedProfile.isPublic, true);
+  assert.equal(savedProfile.bio, profile.bio);
+  assert.equal(savedProfile.username, profile.username);
   lb = await call("leaderboard?period=all", undefined, "GET");
   assert.ok(
     lb.data.rows.some(

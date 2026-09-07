@@ -7,3 +7,5 @@ for file in "$HOME/.local/bin/typegrid" "$HOME/Library/LaunchAgents/dev.typegrid
 done
 printf 'TypeGrid uninstalled. Local aggregates and credentials remain in:\n%s\n' "$HOME/Library/Application Support/TypeGrid"
 printf 'To remove those too, delete that folder in Finder. Delete your online account at https://typegrid.dev/settings.\n'
+
+printf 'Also move TypeGrid.app from Applications to Trash, and remove its Input Monitoring permission.\n'

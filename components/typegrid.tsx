@@ -842,7 +842,7 @@ export function TypeGrid({
                     text="Choose how you appear on the Grid."
                   />
                   {data.user ? (
-                    <Settings data={data} action={action} notice={setNotice} />
+                    <Settings data={data} action={action} refresh={refresh} />
                   ) : (
                     <SignIn />
                   )}
@@ -1131,39 +1131,49 @@ function Leaderboard() {
 function Settings({
   data,
   action,
-  notice,
+  refresh,
 }: {
   data: Data;
   action: (p: string, b?: unknown, m?: string) => Promise<any>;
-  notice: (s: string) => void;
+  refresh: () => Promise<void>;
 }) {
   const u = data.user!;
   const [username, setUsername] = useState(u.username),
     [bio, setBio] = useState(u.bio),
     [avatar, setAvatar] = useState(u.avatar),
     [isPublic, setPublic] = useState(u.isPublic),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [saveError, setSaveError] = useState(""),
+    [saved, setSaved] = useState(false);
   return (
     <>
       <form
         className="settings-form"
+        noValidate
+        onChange={() => {
+          setSaved(false);
+          setSaveError("");
+        }}
         onSubmit={async (e) => {
           e.preventDefault();
           setBusy(true);
-          const r = await action(
-            "profile",
-            { username, bio, avatar, isPublic },
-            "PATCH",
-          );
-          setBusy(false);
-          if (r) notice("Your profile is saved.");
+          setSaved(false);
+          setSaveError("");
+          try {
+            await api("profile", { username, bio, avatar, isPublic }, "PATCH");
+            await refresh();
+            setSaved(true);
+          } catch (error) {
+            setSaveError((error as Error).message);
+          } finally {
+            setBusy(false);
+          }
         }}
       >
         <label>
           Username
           <input
             required
-            pattern="[a-z0-9_-]{3,24}"
             minLength={3}
             maxLength={24}
             value={username}
@@ -1208,11 +1218,24 @@ function Settings({
             </small>
           </span>
         </label>
-        <button disabled={busy} className="button primary">
-          {busy ? "Saving…" : "Save changes"} <CheckIcon />
+        <button type="submit" disabled={busy} className="button primary">
+          {busy ? "Saving…" : saved ? "Saved" : "Save changes"} <CheckIcon />
         </button>
-        {isPublic && (
-          <Link href={"/u/" + username} className="text-link">
+        {saveError && (
+          <p className="error" role="alert">
+            {saveError}
+          </p>
+        )}
+        {saved && (
+          <p role="status">
+            Your profile is saved.{" "}
+            {u.isPublic
+              ? "Your profile is public."
+              : "Your profile is private."}
+          </p>
+        )}
+        {u.isPublic && (
+          <Link href={"/u/" + u.username} className="text-link">
             View public profile <ArrowRightIcon />
           </Link>
         )}
