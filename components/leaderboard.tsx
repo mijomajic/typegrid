@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-type Row = { username: string; keystrokes: number; level: number | null };
+type Row = { username: string; score: number; level: number | null };
 const periods = [
   ["day", "Today"],
   ["week", "This week"],
@@ -48,7 +48,12 @@ export function Leaderboard() {
       clearInterval(timer);
     };
   }, [metric, period]);
-  const unit = metric === "tokens" ? "AI tokens" : "keystrokes";
+  const unit =
+    metric === "tokens"
+      ? "AI tokens"
+      : metric === "clicks"
+        ? "clicks"
+        : "keystrokes";
   return (
     <section className="grid-rankings">
       <h1 className="sr-only">Leaderboard</h1>
@@ -60,6 +65,7 @@ export function Leaderboard() {
         >
           {[
             ["keys", "Keystrokes"],
+            ["clicks", "Clicks"],
             ["tokens", "AI tokens"],
           ].map(([v, l]) => (
             <button
@@ -108,7 +114,7 @@ export function Leaderboard() {
                     {row ? "@" + row.username : "An open spot."}
                   </strong>
                   <span className="stage-score">
-                    {row ? row.keystrokes.toLocaleString() : "—"}
+                    {row ? row.score.toLocaleString() : "—"}
                   </span>
                   <span className="stage-unit">
                     {row ? unit : "Make it yours"}
@@ -168,7 +174,7 @@ export function Leaderboard() {
                   <th scope="col">Player</th>
                   <th scope="col">{unit}</th>
                   <th scope="col">
-                    {metric === "tokens" ? "Share of top 100" : "Level"}
+                    {metric !== "keys" ? "Share of top 100" : "Level"}
                   </th>
                 </tr>
               </thead>
@@ -192,12 +198,11 @@ export function Leaderboard() {
                         {i === 0 && <span className="leader-tag">LEADING</span>}
                       </Link>
                     </td>
-                    <td>{r.keystrokes.toLocaleString()}</td>
+                    <td>{r.score.toLocaleString()}</td>
                     <td>
-                      {metric === "tokens"
+                      {metric !== "keys"
                         ? (
-                            (r.keystrokes /
-                              rows.reduce((s, v) => s + v.keystrokes, 0)) *
+                            (r.score / rows.reduce((s, v) => s + v.score, 0)) *
                             100
                           ).toFixed(1) + "%"
                         : "LVL " + r.level}
@@ -213,7 +218,9 @@ export function Leaderboard() {
             <p>
               {metric === "tokens"
                 ? "No public AI token totals for this period yet. Connect Claude Code or Codex and complete a coding session."
-                : "Make your profile public and start typing to take the first spot."}
+                : metric === "clicks"
+                  ? "No public click totals for this period yet. Make your profile public and sync mouse or trackpad clicks to take the first spot."
+                  : "Make your profile public and start typing to take the first spot."}
             </p>
             <Link
               className="button small"

@@ -190,6 +190,17 @@ try {
     ),
     35,
   );
+  const privateClicks = await call(
+    "leaderboard?period=all&metric=clicks",
+    undefined,
+    "GET",
+  );
+  assert.equal(privateClicks.status, 200);
+  assert.ok(!privateClicks.data.rows.some((r) => r.username === "local-test"));
+  assert.equal(
+    (await call("leaderboard?metric=unknown", undefined, "GET")).status,
+    400,
+  );
   let lb = await call("leaderboard?period=all", undefined, "GET");
   assert.ok(!lb.data.rows.some((r) => r.username === "local-test"));
   const privateOwn = await call("profile/local-test", undefined, "GET");
@@ -284,6 +295,29 @@ try {
     4,
     "Displayed level uses lifetime XP, independent of leaderboard period",
   );
+  const clickCookie = cookie;
+  cookie = "";
+  for (const period of ["day", "week", "month", "all"]) {
+    const ranking = await call(
+      "leaderboard?period=" + period + "&metric=clicks",
+      undefined,
+      "GET",
+    );
+    assert.equal(ranking.status, 200);
+    const start = new Date(hour);
+    start.setUTCHours(0, 0, 0, 0);
+    if (period === "week")
+      start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
+    if (period === "month") start.setUTCDate(1);
+    if (period === "all") start.setTime(0);
+    const score = 35 + (Date.parse(oldHour) >= start.getTime() ? 35 : 0);
+    const row = ranking.data.rows.find((r) => r.username === "local-test");
+    assert.equal(row.score, score);
+    assert.equal(row.clicks, score);
+    assert.equal(row.level, null);
+    assert.ok(ranking.data.rows.every((r) => r.score > 0));
+  }
+  cookie = clickCookie;
   const own = await call("profile/local-test", undefined, "GET");
   assert.equal(own.data.isOwner, true);
   assert.equal(own.data.detailed, true);
@@ -293,7 +327,10 @@ try {
   assert.equal(pub.data.buckets[0].sessions, 0);
   assert.equal(pub.data.devices.length, 0);
   assert.equal(pub.data.detailed, false);
-  assert.equal(pub.data.buckets.reduce((n, b) => n + b.clicks, 0), 70);
+  assert.equal(
+    pub.data.buckets.reduce((n, b) => n + b.clicks, 0),
+    70,
+  );
   assert.ok(pub.data.codingHistory.every((r) => r.seconds === 0));
   const ownerCookie = cookie;
   cookie = "";
@@ -335,7 +372,10 @@ try {
   );
   const exported = await call("export", undefined, "GET");
   assert.equal(exported.status, 200);
-  assert.equal(exported.data.buckets.reduce((n, b) => n + b.clicks, 0), 70);
+  assert.equal(
+    exported.data.buckets.reduce((n, b) => n + b.clicks, 0),
+    70,
+  );
   assert.equal(JSON.stringify(exported.data).includes(device.token), false);
   console.log(
     "PASS: pairing, replay safety, rejection of content, CSRF, privacy, leaderboard, revocation, export",

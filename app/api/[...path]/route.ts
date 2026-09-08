@@ -279,6 +279,9 @@ async function handler(
       });
     }
     if (path === "leaderboard" && method === "GET") {
+      const metric = url.searchParams.get("metric") || "keys";
+      if (!["keys", "clicks", "tokens"].includes(metric))
+        throw new HttpError(400, "Invalid metric");
       const period = url.searchParams.get("period") || "week";
       if (!["day", "week", "month", "all"].includes(period))
         throw new HttpError(400, "Invalid period");
@@ -288,13 +291,26 @@ async function handler(
         start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
       if (period === "month") start.setUTCDate(1);
       if (period === "all") start.setTime(0);
-      if (url.searchParams.get("metric") === "tokens") {
+      if (metric === "clicks") {
+        const rows =
+          await db()`SELECT u.username,SUM(b.clicks)::bigint AS clicks FROM users u JOIN devices d ON d.user_id=u.id JOIN buckets b ON b.device_id=d.id WHERE u.is_public=true AND b.hour>=${start.toISOString()} GROUP BY u.id HAVING SUM(b.clicks)>0 ORDER BY clicks DESC,u.username LIMIT 100`;
+        return json({
+          rows: rows.map((r) => ({
+            username: r.username,
+            score: Number(r.clicks),
+            clicks: Number(r.clicks),
+            level: null,
+          })),
+        });
+      }
+      if (metric === "tokens") {
         const rows =
           await db()`SELECT u.username,SUM(b.tokens)::bigint AS tokens FROM users u JOIN devices d ON d.user_id=u.id JOIN coding_buckets b ON b.device_id=d.id WHERE u.is_public=true AND b.hour>=${start.toISOString()} GROUP BY u.id HAVING SUM(b.tokens)>0 ORDER BY tokens DESC,u.username LIMIT 100`;
         return json({
           rows: rows.map((r) => ({
             username: r.username,
             keystrokes: Number(r.tokens),
+            score: Number(r.tokens),
             level: null,
           })),
         });
@@ -305,6 +321,7 @@ async function handler(
         rows: rows.map((r) => ({
           username: r.username,
           keystrokes: Number(r.keystrokes),
+          score: Number(r.keystrokes),
           level:
             Math.floor(Math.sqrt(Math.floor(Number(r.lifetime) / 10) / 100)) +
             1,
