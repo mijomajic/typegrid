@@ -10,3 +10,4 @@ agent/dist/
 .wrangler/
 .firecrawl/
 .env*.local
+.vercel
