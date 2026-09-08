@@ -54,3 +54,6 @@ ALTER TABLE users ALTER COLUMN is_public SET DEFAULT true;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_ready boolean NOT NULL DEFAULT true;
 ALTER TABLE users ALTER COLUMN onboarding_ready SET DEFAULT false;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS input_monitoring boolean;
+
+-- Additive migration: old agents and existing activity keep working.
+ALTER TABLE buckets ADD COLUMN IF NOT EXISTS clicks integer NOT NULL DEFAULT 0 CHECK(clicks BETWEEN 0 AND 360000);

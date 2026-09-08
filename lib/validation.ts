@@ -16,6 +16,7 @@ export const bucketSchema = z
           Date.parse(s) > Date.now() - 31 * 86400000,
         "Hour outside retention window",
       ),
+    clicks: z.number().int().min(0).max(360000).default(0),
     keystrokes: z.number().int().min(0).max(360000),
     activeSeconds: z.number().int().min(0).max(3600),
     sessions: z.number().int().min(0).max(3600),

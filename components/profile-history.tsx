@@ -30,6 +30,7 @@ export function ProfileHistory({
     {
       period: string;
       keys: number;
+      clicks: number;
       active: number;
       sessions: number;
       peak: number;
@@ -42,6 +43,7 @@ export function ProfileHistory({
       rows.set(key, {
         period: key,
         keys: 0,
+        clicks: 0,
         active: 0,
         sessions: 0,
         peak: 0,
@@ -52,6 +54,7 @@ export function ProfileHistory({
   for (const b of selected) {
     const r = row(b.hour.slice(0, 10));
     r.keys += b.keystrokes;
+    r.clicks += b.clicks ?? 0;
     r.active += b.activeSeconds;
     r.sessions += b.sessions;
     r.peak = Math.max(r.peak, b.peakWpm);
@@ -127,10 +130,14 @@ export function ProfileHistory({
         <p role="alert">The end date must be on or after the start date.</p>
       ) : (
         <>
-          <div className="metrics compact">
+          <div className="metrics compact input-metrics">
             <div>
               <span>Keystrokes in range</span>
               <strong>{format(stats.keys)}</strong>
+            </div>
+            <div>
+              <span>Clicks in range</span>
+              <strong>{format(stats.clicks)}</strong>
             </div>
             <div>
               <span>AI tokens in range</span>
@@ -236,6 +243,7 @@ export function ProfileHistory({
                         {group === "day" ? "Date" : "Month"} · UTC
                       </th>
                       <th scope="col">Keystrokes</th>
+                      <th scope="col">Clicks</th>
                       <th scope="col">Est. words</th>
                       <th scope="col">AI tokens</th>
                       {detailed && (
@@ -254,6 +262,7 @@ export function ProfileHistory({
                         <tr key={r.period}>
                           <th scope="row">{r.period}</th>
                           <td>{format(r.keys)}</td>
+                          <td>{format(r.clicks)}</td>
                           <td>{format(Math.floor(r.keys / 5))}</td>
                           <td>{format(r.tokens)}</td>
                           {detailed && (

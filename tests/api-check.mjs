@@ -59,6 +59,7 @@ try {
   const b = {
     hour: hour.toISOString(),
     keystrokes: 140,
+    clicks: 35,
     activeSeconds: 30,
     sessions: 1,
     devKeystrokes: 90,
@@ -172,6 +173,23 @@ try {
     me.data.buckets.reduce((n, b) => n + b.keystrokes, 0),
     140,
   );
+  assert.equal(
+    me.data.buckets.reduce((n, b) => n + b.clicks, 0),
+    35,
+  );
+  // A legacy retry without click counts must not erase newer click totals.
+  const { clicks, ...legacyBucket } = b;
+  assert.equal(
+    (await call("ingest", { buckets: [legacyBucket] }, "POST", auth)).status,
+    200,
+  );
+  assert.equal(
+    (await call("me", undefined, "GET")).data.buckets.reduce(
+      (n, b) => n + b.clicks,
+      0,
+    ),
+    35,
+  );
   let lb = await call("leaderboard?period=all", undefined, "GET");
   assert.ok(!lb.data.rows.some((r) => r.username === "local-test"));
   const privateOwn = await call("profile/local-test", undefined, "GET");
@@ -275,6 +293,7 @@ try {
   assert.equal(pub.data.buckets[0].sessions, 0);
   assert.equal(pub.data.devices.length, 0);
   assert.equal(pub.data.detailed, false);
+  assert.equal(pub.data.buckets.reduce((n, b) => n + b.clicks, 0), 70);
   assert.ok(pub.data.codingHistory.every((r) => r.seconds === 0));
   const ownerCookie = cookie;
   cookie = "";
@@ -316,6 +335,7 @@ try {
   );
   const exported = await call("export", undefined, "GET");
   assert.equal(exported.status, 200);
+  assert.equal(exported.data.buckets.reduce((n, b) => n + b.clicks, 0), 70);
   assert.equal(JSON.stringify(exported.data).includes(device.token), false);
   console.log(
     "PASS: pairing, replay safety, rejection of content, CSRF, privacy, leaderboard, revocation, export",

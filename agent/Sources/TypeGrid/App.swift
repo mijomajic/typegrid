@@ -157,12 +157,15 @@ final class Agent: NSObject, NSApplicationDelegate {
             status.button?.toolTip = statusText
             return
         }
-        tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly, eventsOfInterest: CGEventMask(1 << CGEventType.keyDown.rawValue), callback: { _, type, _, info in
-            // Deliberately unnamed event argument: no key code, text, flags or timestamp is read.
+        tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly, eventsOfInterest: [CGEventType.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown].reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }, callback: { _, type, _, info in
+            // Deliberately unnamed event argument: no key code, text, position, flags or timestamp is read.
             guard let info else { return nil }
             let agent = Unmanaged<Agent>.fromOpaque(info).takeUnretainedValue()
             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput { if let tap = agent.tap { CGEvent.tapEnable(tap: tap, enable: true) }; return nil }
-            if type == .keyDown && !agent.paused { agent.counter.record(isDev: agent.isDev) }
+            if !agent.paused {
+                if type == .keyDown { agent.counter.record(isDev: agent.isDev) }
+                else if type == .leftMouseDown || type == .rightMouseDown || type == .otherMouseDown { agent.counter.recordClick() }
+            }
             // Listen-only event taps cannot alter or suppress the input event.
             return nil
         }, userInfo: Unmanaged.passUnretained(self).toOpaque())
@@ -179,12 +182,13 @@ final class Agent: NSObject, NSApplicationDelegate {
     func updateStatusDisplay() {
         let today = ISO8601DateFormatter().string(from: Date()).prefix(10)
         let total = counter.buckets.values.filter { $0.hour.hasPrefix(today) }.reduce(0) { $0 + $1.keystrokes }
-        status.menu?.items.first?.title = paused ? "Tracking paused" : tap == nil ? "Allow Input Monitoring" : "\(total.formatted()) keystrokes today"
+        let clicks = counter.buckets.values.filter { $0.hour.hasPrefix(today) }.reduce(0) { $0 + $1.clicks }
+        status.menu?.items.first?.title = paused ? "Tracking paused" : tap == nil ? "Allow Input Monitoring" : "\(total.formatted()) keystrokes · \(clicks.formatted()) clicks today"
         status.menu?.items.first(where: { $0.action == #selector(toggle) })?.title = paused ? "Resume tracking" : "Pause tracking"
         status.button?.title = " " + total.formatted() + (paused ? " Ⅱ" : tap == nil ? " !" : "")
-        status.button?.setAccessibilityLabel("TypeGrid, \(total.formatted()) keystrokes today, UTC" + (paused ? ", paused" : tap == nil ? ", Input Monitoring required" : ""))
+        status.button?.setAccessibilityLabel("TypeGrid, \(total.formatted()) keystrokes · \(clicks.formatted()) clicks today, UTC" + (paused ? ", paused" : tap == nil ? ", Input Monitoring required" : ""))
         status.button?.appearsDisabled = paused || tap == nil
-        status.button?.toolTip = "TypeGrid — \(total.formatted()) keystrokes today (UTC). \(statusText). We count. We don’t read."
+        status.button?.toolTip = "TypeGrid — \(total.formatted()) keystrokes · \(clicks.formatted()) clicks today (UTC). \(statusText). We count. We don’t read."
     }
     func tick() {
         config = loadConfig()
@@ -264,7 +268,7 @@ func start() throws {
         let command = CommandLine.arguments.dropFirst().first ?? (Bundle.main.bundleIdentifier == "dev.typegrid.agent" ? "run" : "help")
         do {
             switch command {
-            case "version": print("0.1.7")
+            case "version": print("0.1.8")
             case "is-paired": exit(loadConfig().token == nil ? 1 : 0)
             case "pair": try pair()
             case "connect", "disconnect":
@@ -285,8 +289,8 @@ func start() throws {
             case "start", "restart": try start()
             case "stop": _ = launch(["bootout", "gui/\(getuid())/dev.typegrid.agent"]); print("TypeGrid stopped. Run typegrid start to resume.")
             case "classify": var c = loadConfig(); c.classify = CommandLine.arguments.last != "off"; try save(c, to: configURL); print("App classification \(c.classify ? "on" : "off").")
-            case "status": let c = loadConfig(); print("TypeGrid 0.1.7\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
-            default: print("TypeGrid 0.1.7 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
+            case "status": let c = loadConfig(); print("TypeGrid 0.1.8\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
+            default: print("TypeGrid 0.1.8 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
             }
         } catch { fputs("TypeGrid: \(error.localizedDescription)\n", stderr); exit(1) }
     }

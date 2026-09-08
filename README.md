@@ -14,11 +14,11 @@ A tiny native agent. Live personal stats. A little friendly competition.
 
 ![TypeGrid interface illustration — example data](docs/preview.svg)
 
-TypeGrid is a free, open-source stats network for developers and people who live on computers. It counts keyboard **events**, never their contents. No AI integration is required to track your activity.
+TypeGrid is a free, open-source stats network for developers and people who live on computers. It counts keyboard and mouse-click **events**, never their contents or click positions. No AI integration is required to track your activity.
 
 ## What you get
 
-- Live keystroke counts, estimated words, active typing time, sessions and peak speed
+- Live keystroke and mouse/trackpad click counts, estimated words, active typing time, sessions and peak speed
 - Hourly patterns, daily records, streaks, XP, levels and achievements
 - Your own profile preview, with all synced history, date filters and daily/monthly totals
 - GitHub sign-in, editable profiles, and public leaderboards with an optional private profile
@@ -147,3 +147,9 @@ swift build --package-path agent -c release
 ## Contribute
 
 Keep it small. Help with a reviewed Linux/Windows native tracker, accessibility, or metrics-only AI adapters. [Contribution guide](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [MIT license](LICENSE).
+
+### Click counting
+
+The native agent counts left, right, and other mouse-button presses in one hourly click total, including trackpad clicks. It does not inspect coordinates, button identities, clicked content, movement, or scrolling. Double-clicks count as two presses. Pause applies to both keyboard and mouse counting. Clicks sync and retry with the existing hourly counters, and appear in the dashboard, activity chart, profile history, and data export. Typing metrics and keyboard rankings remain keyboard-only.
+
+Roll out the additive database migration (`npm run db:migrate`) before deploying the updated server, then release the updated native agent. Existing agents remain compatible; old saved buckets load with zero clicks. Earlier click activity cannot be recovered. Users need the updated agent to start counting clicks.

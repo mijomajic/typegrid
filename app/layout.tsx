@@ -7,11 +7,11 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://typegrid.dev"),
   icons: { icon: [{ url: "/favicon.svg?v=loop-1", type: "image/svg+xml" }] },
   title: {
-    default: "TypeGrid — Every keystroke counts.",
+    default: "TypeGrid — Every keystroke and click counts.",
     template: "%s · TypeGrid",
   },
   description:
-    "Connect your machine to the Grid. Free, open-source typing stats, streaks, and a little friendly competition. We count. We don’t read.",
+    "Connect your machine to the Grid. Free, open-source typing and click stats, streaks, and a little friendly competition. We count. We don’t read.",
 };
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (

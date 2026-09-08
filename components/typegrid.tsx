@@ -235,16 +235,21 @@ function Home() {
               <span className="pixel">In numbers.</span>
             </h1>
             <p>
-              Every keystroke counts. See your rhythm in stats, streaks, and a
-              little friendly competition. All from your menu bar.
+              Every keystroke and click counts. See your rhythm in stats,
+              streaks, and a little friendly competition. All from your menu
+              bar.
             </p>
             <div className="hero-install">
               <span className="mono install-label">
                 INSTALL TYPEGRID · MACOS
               </span>
-              <p className="muted">
-                Start with GitHub sign-in. Your install command unlocks during
-                setup.
+              <Command />
+              <p className="install-note">
+                First,{" "}
+                <Link href="/connect">
+                  sign in and choose your profile visibility
+                </Link>
+                . Then run the command above to install.
               </p>
               <p className="install-note">
                 Paste into Terminal · macOS 13+ · Apple Command Line Tools
@@ -307,17 +312,18 @@ function Home() {
           <div>
             <p>
               Not your code. Not your messages. Not your passwords. TypeGrid
-              only counts keyboard events — it never asks which key you pressed.
+              only counts keyboard and mouse-click events — never which key you
+              pressed or where you clicked.
             </p>
             <div className="privacy-facts">
               <span>
-                <CheckIcon /> No key codes or typed text
+                <CheckIcon /> No key codes, typed text, or click positions
               </span>
               <span>
                 <CheckIcon /> No window titles or browsing history
               </span>
               <span>
-                <CheckIcon /> Private profiles by default
+                <CheckIcon /> You choose your profile visibility
               </span>
               <span>
                 <CheckIcon /> Source you can actually read
@@ -336,12 +342,18 @@ function Home() {
               <br />
               could be your first.
             </h2>
-            <p>Install. Sign in. Watch your stats come alive.</p>
+            <p>
+              Sign in. Choose your visibility. Install. Watch your stats come
+              alive.
+            </p>
           </div>
           <div>
-            <p className="muted">
-              Start with GitHub sign-in. Your install command unlocks during
-              setup.
+            <Command />
+            <p className="install-note">
+              <Link href="/connect">
+                Sign in and choose your profile visibility
+              </Link>{" "}
+              before installing.
             </p>
             <p className="mono muted install-note">
               macOS 13+ · Apple Silicon & Intel · No Electron
@@ -406,9 +418,9 @@ function DemoDashboard() {
             </small>
           </div>
           <div>
-            <span>Estimated words</span>
-            <strong>4,978</strong>
-            <small>5 keystrokes ≈ 1 word</small>
+            <span>Clicks today</span>
+            <strong>1,284</strong>
+            <small>Mouse and trackpad clicks</small>
           </div>
           <div>
             <span>Active typing</span>
@@ -628,12 +640,17 @@ export function TypeGrid({
                           </Link>
                         </div>
                       )}
-                      <div className="metrics">
+                      <div className="metrics input-metrics">
                         {[
                           [
                             "Keystrokes today",
                             fmt(daily.keys),
                             "Key-down events, nothing more",
+                          ],
+                          [
+                            "Clicks today",
+                            fmt(daily.clicks),
+                            "Mouse and trackpad button presses",
                           ],
                           [
                             "Estimated words",
@@ -772,7 +789,7 @@ export function TypeGrid({
                   <PageTitle
                     eyebrow="MORE CONTEXT. SAME PRIVACY."
                     title="Connect your toolkit."
-                    text="Your keystrokes work out of the box. Add the tools that tell more of your story."
+                    text="Your keystrokes and clicks work out of the box. Add the tools that tell more of your story."
                   />
                   <section className="integration">
                     <div className="integration-icon">
@@ -879,10 +896,14 @@ export function TypeGrid({
                           <p>{data.user.bio || "Every keystroke counts."}</p>
                         </div>
                       </div>
-                      <div className="metrics">
+                      <div className="metrics input-metrics">
                         <div>
                           <span>All-time keystrokes</span>
                           <strong>{fmt(stats.keys)}</strong>
+                        </div>
+                        <div>
+                          <span>All-time clicks</span>
+                          <strong>{fmt(stats.clicks)}</strong>
                         </div>
                         <div>
                           <span>Current streak</span>
@@ -1191,23 +1212,36 @@ function Onboarding({
   );
 }
 function Activity({ buckets }: { buckets: Bucket[] }) {
+  const [metric, setMetric] = useState<"keystrokes" | "clicks">("keystrokes");
   const counts = Array.from({ length: 24 }, (_, h) =>
     buckets
       .filter((b) => new Date(b.hour).getUTCHours() === h)
-      .reduce((n, b) => n + b.keystrokes, 0),
+      .reduce((n, b) => n + (b[metric] ?? 0), 0),
   );
   const max = Math.max(1, ...counts);
   return (
     <section className="panel activity">
       <div className="split">
         <h3>Activity pulse</h3>
-        <span className="mono muted">KEYSTROKES / HOUR · UTC</span>
+        <label className="mono muted">
+          <select
+            aria-label="Activity metric"
+            value={metric}
+            onChange={(e) =>
+              setMetric(e.target.value as "keystrokes" | "clicks")
+            }
+          >
+            <option value="keystrokes">Keystrokes</option>
+            <option value="clicks">Clicks</option>
+          </select>{" "}
+          / HOUR · UTC
+        </label>
       </div>
       <div className="bar-chart real">
         {counts.map((v, i) => (
           <div
             key={i}
-            title={`${i}:00 UTC: ${fmt(v)} keystrokes`}
+            title={`${i}:00 UTC: ${fmt(v)} ${metric}`}
             style={{ height: Math.max(1, (v / max) * 100) + "%" }}
           />
         ))}
@@ -1441,12 +1475,12 @@ function Privacy() {
       <PageTitle
         eyebrow="THE TYPEGRID PRIVACY PROMISE"
         title="We count. We don’t read."
-        text="A stats tool should never need to know what you type."
+        text="A stats tool should never need to know what you type or where you click."
       />
       {[
         [
           "What the agent sees",
-          "A macOS key-down event occurred. The callback increments a counter without inspecting the event’s key code or character. It never reads typed strings, the clipboard, window titles, file paths, browser URLs, or screenshots.",
+          "A macOS key-down or mouse-button-down event occurred. The callback increments separate keyboard and click counters without inspecting key codes, characters, click positions, or clicked content. Left, right, and other mouse buttons share one click total; trackpad clicks count too. Movement, scrolling, and button releases are not counted. It never reads typed strings, the clipboard, window titles, file paths, browser URLs, or screenshots.",
         ],
         [
           "What stays on your machine",
@@ -1454,7 +1488,7 @@ function Privacy() {
         ],
         [
           "What reaches the server",
-          "Device ID, UTC hour, cumulative keystrokes, active typing seconds, session count, dev-app count, and estimated peak WPM. Hourly buckets update every five seconds while connected. No individual-event timestamps or sequences are persisted or transmitted.",
+          "Device ID, UTC hour, cumulative keystrokes and clicks, active typing seconds, session count, dev-app count, and estimated peak WPM. Hourly buckets update every five seconds while connected. No individual-event timestamps or sequences are persisted or transmitted.",
         ],
         [
           "What other people can see",
@@ -1462,7 +1496,7 @@ function Privacy() {
         ],
         [
           "The honest limits",
-          "Aggregate timing can still reveal habits. The server necessarily handles IP addresses for HTTP requests, and our hosting provider may retain operational logs. No advertising analytics are installed. Secure Input may cause macOS to suppress events, so counts are approximate. Keystrokes include shortcuts, modifiers may not count, and held keys may repeat.",
+          "Aggregate timing can still reveal habits. The server necessarily handles IP addresses for HTTP requests, and our hosting provider may retain operational logs. No advertising analytics are installed. Secure Input may cause macOS to suppress events, so counts are approximate. Keystrokes include shortcuts, modifiers may not count, and held keys may repeat. A double-click counts as two presses. Clicks do not affect estimated words, WPM, typing time, streaks, or keyboard rankings.",
         ],
         [
           "Your controls",

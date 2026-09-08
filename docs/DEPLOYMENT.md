@@ -35,3 +35,11 @@ Apply the migration before deploying. Existing profile visibility is preserved.
 New profiles default public and must confirm visibility before pairing approval.
 The agent reports only whether Input Monitoring is available alongside its existing
 aggregate heartbeat. Publish the v0.1.7 source assets before deploying the installer.
+
+## v0.1.8 click counting
+
+1. Run `npm run db:migrate` to add the bounded, default-zero `buckets.clicks` column. Existing profiles and their visibility are untouched.
+2. Deploy the updated API and website with the installer still pinned to v0.1.7 if v0.1.8 source assets are not yet published.
+3. Publish the v0.1.8 source archive and checksum, then deploy the v0.1.8 installer. Existing users rerun the install command to update.
+
+Old clients can keep sending keyboard-only payloads. Cumulative click totals use monotonic upserts, so retries or older clients cannot erase them. Saved native buckets without clicks decode as zero.

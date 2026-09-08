@@ -101,3 +101,53 @@ test("permission heartbeat contains only a boolean", () => {
     false,
   );
 });
+
+test("click ingestion accepts legacy agents and rejects mouse metadata and invalid counts", () => {
+  assert.equal(ingestSchema.parse({ buckets: [bucket] }).buckets[0].clicks, 0);
+  assert.equal(
+    ingestSchema.parse({ buckets: [{ ...bucket, clicks: 42 }] }).buckets[0]
+      .clicks,
+    42,
+  );
+  for (const clicks of [-1, 360001, 1.5, "2", null])
+    assert.equal(
+      ingestSchema.safeParse({ buckets: [{ ...bucket, clicks }] }).success,
+      false,
+    );
+  for (const extra of [
+    { x: 10, y: 20 },
+    { button: 0 },
+    { target: "private" },
+    { coordinates: [10, 20] },
+  ])
+    assert.equal(
+      ingestSchema.safeParse({ buckets: [{ ...bucket, clicks: 1, ...extra }] })
+        .success,
+      false,
+    );
+});
+
+test("clicks aggregate across buckets without changing typing metrics", () => {
+  const baseline = summarize([bucket, bucket]);
+  const mixed = summarize([
+    { ...bucket, clicks: 42 },
+    { ...bucket, clicks: 8 },
+  ]);
+  assert.equal(mixed.clicks, 50);
+  assert.deepEqual({ ...mixed, clicks: 0 }, baseline);
+  const clickOnly = summarize([
+    {
+      ...bucket,
+      keystrokes: 0,
+      clicks: 100,
+      activeSeconds: 0,
+      sessions: 0,
+      devKeystrokes: 0,
+      peakWpm: 0,
+    },
+  ]);
+  assert.equal(clickOnly.clicks, 100);
+  assert.equal(clickOnly.streak, 0);
+  assert.equal(clickOnly.words, 0);
+  assert.equal(clickOnly.xp, 0);
+});
