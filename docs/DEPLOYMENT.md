@@ -47,3 +47,7 @@ Old clients can keep sending keyboard-only payloads. Cumulative click totals use
 ## v0.2.0 desktop workspace
 
 See [DESKTOP.md](DESKTOP.md) for the coordinated native/API rollout. Apply the additive `desktop_logins` migration, publish the universal Mac app and checksum assets, and deploy the `/app` workspace plus desktop authentication endpoints.
+
+## v0.2.1 source installation
+
+The public entry point is the source installer again, with the workspace in the browser and automatic source updates in the menu-bar agent. Publish v0.2.1 source assets before deploying the pinned installer. Existing 0.2.0 desktop installations migrate by running that installer once. See [DESKTOP.md](DESKTOP.md). No schema migration is introduced.

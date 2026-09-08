@@ -38,7 +38,9 @@ macOS 13+, Apple Silicon or Intel, with [Apple Command Line Tools](https://devel
 curl -fsSL https://typegrid.dev/install.sh | sh
 ```
 
-The desktop download opens stats and leaderboards in TypeGrid itself. It includes automatic update checks and verified app updates. The alternative source installer downloads the versioned source release, verifies its SHA-256 checksum, and compiles the dependency-free Swift agent locally. It opens your browser for GitHub sign-in and pairing, then starts the menu-bar agent. Building from source avoids requiring an unsigned prebuilt binary to bypass Gatekeeper. The installer creates a locally ad-hoc-signed TypeGrid.app; Developer ID signing and notarization are not included.
+The installer downloads the versioned source release, verifies its SHA-256 checksum, and compiles the dependency-free Swift agent locally. It opens your browser for sign-in and pairing, then starts TypeGrid in the menu bar at login. Stats and leaderboards live in your browser. The agent checks for updates every six hours, verifies and builds new source releases in the background, saves counts, and restarts automatically. You can also choose **Check for Updates…** in the menu bar.
+
+Local builds are ad-hoc signed, not Developer ID signed or notarized. macOS may require Input Monitoring approval again after a native update. A stable signing identity is needed for permission continuity; the installer never resets or bypasses macOS privacy permissions.
 
 1. Open [Connect](https://typegrid.dev/connect) and sign in with GitHub.
 2. Confirm your visibility: new profiles are public by default; private is available.

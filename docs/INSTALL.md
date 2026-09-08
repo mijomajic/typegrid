@@ -16,6 +16,14 @@ curl -fsSL https://typegrid.dev/install.sh | sh
 
 To install without pairing: `curl -fsSL https://typegrid.dev/install.sh | TYPEGRID_NO_PAIR=1 sh`.
 
+## Automatic updates and permissions
+
+After this source installation, update checks run fifteen seconds after launch (subject to the six-hour check interval) and every six hours. **Check for Updates…** checks immediately; **Automatic Updates** disables or enables background updates. Updates verify the release checksum and archive paths/types, build a fresh app locally with Apple Command Line Tools, verify its bundle/version/signature, save counters, and restart. Failed downloads or builds leave the running app intact. Existing pairing, login setup, and profile visibility are preserved.
+
+Input Monitoring is requested only when macOS reports it is missing. The agent retries access automatically after approval. If macOS explicitly requires a relaunch, rerun the installer; an already-current install skips compilation. Changed ad-hoc-signed binaries can require permission again: a source installer cannot guarantee one-time approval. Stable certificate signing is required for permission continuity. No TCC database edits, permission resets, or global Gatekeeper changes are made.
+
+The 0.2.0 downloaded desktop app needs a one-time migration with the command above. It is replaced with a fresh local menu-bar build at the same location; the dashboard opens in your browser. Source-installed 0.2.1 and later update themselves from source.
+
 ## Pairing and recovery
 
 ```sh

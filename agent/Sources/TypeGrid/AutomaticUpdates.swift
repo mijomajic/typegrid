@@ -2,7 +2,7 @@ import AppKit
 import CryptoKit
 import GridCore
 
-let typegridVersion = "0.2.0"
+let typegridVersion = "0.2.1"
 
 final class AutomaticUpdates {
     private(set) var statusText = "Updates enabled"
@@ -17,7 +17,7 @@ final class AutomaticUpdates {
         set { UserDefaults.standard.set(newValue, forKey: "automaticUpdates"); statusText = newValue ? "Updates enabled" : "Automatic updates off"; didChange?(); if newValue { check() } }
     }
     func start() {
-        if let cached = UserDefaults.standard.dictionary(forKey: "pendingUpdate") as? [String: String],
+        if let cached = UserDefaults.standard.dictionary(forKey: "pendingSourceUpdate") as? [String: String],
            let name = cached["app"], name.hasPrefix(".TypeGrid-update-"), name.hasSuffix(".app"), !name.contains("/"),
            let identifier = cached["directory"], UUID(uuidString: identifier) != nil,
            let version = cached["version"], let candidate = ReleaseVersion(version), candidate > ReleaseVersion(typegridVersion)! {
@@ -50,8 +50,8 @@ final class AutomaticUpdates {
                 }
                 statusText = "Preparing TypeGrid \(release)…"; didChange?()
                 ready = try await UpdateInstaller.prepare(version: release)
-                if let ready { UserDefaults.standard.set(["app": ready.app.lastPathComponent, "directory": ready.directory.lastPathComponent, "version": release], forKey: "pendingUpdate") }
-                busy = false; statusText = "Update ready — installs when the window closes"; didChange?()
+                if let ready { UserDefaults.standard.set(["app": ready.app.lastPathComponent, "directory": ready.directory.lastPathComponent, "version": release], forKey: "pendingSourceUpdate") }
+                busy = false; statusText = "Update ready — restarting when setup finishes"; didChange?()
                 installIfReady(manual: manual)
             } catch {
                 busy = false; statusText = "Update unavailable — try again"; didChange?()
@@ -71,11 +71,11 @@ final class AutomaticUpdates {
             try UpdateInstaller.validateReady(ready.app)
             try prepareToRestart()
             try UpdateInstaller.apply(staged: ready.app, directory: ready.directory)
-            UserDefaults.standard.removeObject(forKey: "pendingUpdate")
+            UserDefaults.standard.removeObject(forKey: "pendingSourceUpdate")
             NSApp.terminate(nil)
         } catch {
             self.ready = nil
-            UserDefaults.standard.removeObject(forKey: "pendingUpdate")
+            UserDefaults.standard.removeObject(forKey: "pendingSourceUpdate")
             statusText = "Update needs attention — check again"; didChange?()
             if manual { message("Couldn’t finish updating", error.localizedDescription) }
         }
@@ -116,23 +116,27 @@ private enum UpdateInstaller {
         let staged = current.deletingLastPathComponent().appendingPathComponent(".TypeGrid-update-" + UUID().uuidString + ".app")
         do {
             let base = URL(string: repo + "v" + version + "/")!
-            let asset = "TypeGrid-universal.tar.gz"
-            let manifest = try await download(base.appendingPathComponent(asset + ".sha256"), limit: 16_384)
+            let asset = "typegrid-source.tar.gz"
+            let manifest = try await download(base.appendingPathComponent("SHA256SUMS"), limit: 16_384)
             guard let text = String(data: manifest, encoding: .utf8), let checksum = ReleaseValidation.sourceChecksum(text, asset: asset) else { throw failure("The update checksum is missing or invalid.") }
             let source = try await download(base.appendingPathComponent(asset), limit: 50_000_000)
             let actual = SHA256.hash(data: source).map { String(format: "%02x", $0) }.joined()
             guard checksum == actual else { throw failure("The update failed checksum verification. Your current app is unchanged.") }
-            let archive = directory.appendingPathComponent("app.tar.gz")
+            let archive = directory.appendingPathComponent("source.tar.gz")
             try source.write(to: archive, options: .atomic)
             try await Task.detached(priority: .utility) {
                 let listing = try run("/usr/bin/tar", ["-tzf", archive.path], capture: true)
                 guard let entries = String(data: listing, encoding: .utf8), !entries.isEmpty,
-                      entries.split(whereSeparator: \.isNewline).allSatisfy({ ReleaseValidation.safeArchiveEntry(String($0), root: "TypeGrid.app") }) else { throw failure("The update archive has invalid entries.") }
+                      entries.split(whereSeparator: \.isNewline).allSatisfy({ ReleaseValidation.safeArchiveEntry(String($0), root: "typegrid") }) else { throw failure("The update archive has invalid entries.") }
                 // Only directories and regular files are permitted; no symlinks or hardlinks.
                 let details = try run("/usr/bin/tar", ["-tvzf", archive.path], capture: true)
                 guard let lines = String(data: details, encoding: .utf8), lines.split(whereSeparator: \.isNewline).allSatisfy({ $0.first == "-" || $0.first == "d" }) else { throw failure("The update archive contains unsupported file types.") }
                 _ = try run("/usr/bin/tar", ["-xzf", archive.path, "-C", directory.path])
+                do { _ = try run("/usr/bin/xcrun", ["--find", "swift"]) }
+                catch { throw failure("Apple Command Line Tools are needed to build this update. Install them, then choose Check for Updates again.") }
                 let unpacked = directory.appendingPathComponent("TypeGrid.app")
+                let installer = directory.appendingPathComponent("typegrid/agent/scripts/install-app.sh")
+                _ = try run("/bin/sh", [installer.path], environment: ["TYPEGRID_STAGE_APP": unpacked.path])
                 guard let bundle = Bundle(url: unpacked), bundle.bundleIdentifier == "dev.typegrid.agent",
                       bundle.infoDictionary?["CFBundleShortVersionString"] as? String == version else { throw failure("The prepared app does not match the expected release.") }
                 _ = try run("/usr/bin/codesign", ["--verify", "--deep", "--strict", unpacked.path])

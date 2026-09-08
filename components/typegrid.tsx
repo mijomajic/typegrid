@@ -25,8 +25,6 @@ import {
 } from "@radix-ui/react-icons";
 import { achievements, summarize, type Bucket } from "@/lib/stats";
 const repo = "https://github.com/mijomajic/typegrid";
-const macDownload =
-  "https://github.com/mijomajic/typegrid/releases/download/v0.2.0/TypeGrid.dmg";
 const install = "curl -fsSL https://typegrid.dev/install.sh | sh";
 const fmt = (n: number) => new Intl.NumberFormat("en-US").format(n);
 type User = {
@@ -194,7 +192,7 @@ function Header() {
       <div className="container header-inner">
         <Logo />
         <nav aria-label="Website">
-          <a href={macDownload}>Download for Mac</a>
+          <Link href="/app/connect">Install for Mac</Link>
           <Link href="/privacy">Privacy</Link>
           <a href={repo} target="_blank" rel="noreferrer">
             GitHub <ExternalLinkIcon />
@@ -257,31 +255,33 @@ function Home() {
             </h1>
             <p>
               Every keystroke and click counts. See your rhythm in stats,
-              streaks, and a little friendly competition. In your Mac app and
-              menu bar.
+              streaks, and a little friendly competition. On the web and in your
+              Mac menu bar.
             </p>
             <div className="hero-install" id="download">
               <span className="mono install-label">
                 INSTALL TYPEGRID · MACOS
               </span>
               <p className="install-note">
-                Download the app, drag it into Applications, and open TypeGrid.
+                Paste this command into Terminal. Setup opens your browser and
+                starts TypeGrid in the background.
               </p>
+              <Command />
               <p className="install-note">
-                Then,{" "}
+                First,{" "}
                 <Link href="/app/connect">
                   sign in and choose your profile visibility
                 </Link>{" "}
-                to connect your Mac.
+                before installing.
               </p>
               <p className="install-note">
                 macOS 13+ · Apple silicon & Intel · Automatic updates
               </p>
             </div>
             <div className="hero-actions">
-              <a href={macDownload} className="button primary">
-                <DownloadIcon /> Download for Mac
-              </a>
+              <Link href="/app/connect" className="button primary">
+                Set up TypeGrid <ArrowRightIcon />
+              </Link>
               <a className="button" href={repo}>
                 <GitHubLogoIcon /> Star on GitHub
               </a>
@@ -365,17 +365,17 @@ function Home() {
               could be your first.
             </h2>
             <p>
-              Download. Sign in. Choose your visibility. Watch your stats come
-              alive.
+              Sign in. Choose your visibility. Run one command. Watch your stats
+              come alive.
             </p>
           </div>
           <div>
-            <a href={macDownload} className="button primary"><DownloadIcon /> Download for Mac</a>
+            <Command />
             <p className="install-note">
               <Link href="/app/connect">
                 Sign in and choose your profile visibility
               </Link>{" "}
-              when connecting your Mac.
+              before installing.
             </p>
             <p className="mono muted install-note">
               macOS 13+ · Apple Silicon & Intel · No Electron
@@ -1191,24 +1191,20 @@ function Onboarding({
                 ) : (
                   <>
                     <p>
-                      Download TypeGrid, drag it into Applications, and open it.
-                      Your stats and leaderboard live in the app, with automatic
-                      updates built in.
+                      Paste this command into Terminal. Setup opens your browser
+                      to pair this Mac, then starts the menu-bar agent at login.
                     </p>
-                    <a className="button primary" href={macDownload}>
-                      <DownloadIcon /> Download for Mac
-                    </a>
+                    <Command />
                     <p className="muted">
-                      macOS 13+ · Apple Silicon and Intel · Automatic updates
+                      Apple Command Line Tools install once if needed. After
+                      pairing, allow TypeGrid in Input Monitoring. You can then
+                      close Terminal; update checks and local builds run automatically.
                     </p>
-                    <details className="source-install">
-                      <summary>Install from source with Terminal</summary>
-                      <Command />
-                      <p className="muted">
-                        Builds locally using Apple Command Line Tools. The
-                        installer guides you through pairing.
-                      </p>
-                    </details>
+                    <p className="muted">
+                      macOS may ask you to approve Input Monitoring again after
+                      a native update. TypeGrid resumes when access is available.
+                    </p>
+                    <a href="/install.sh" className="text-link">Inspect the installer ↗</a>
                   </>
                 )}
                 {code || manual ? (

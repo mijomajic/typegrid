@@ -71,14 +71,6 @@ func pair(openPage: ((URL) -> Void)? = nil) throws {
 final class Agent: NSObject, NSApplicationDelegate {
     var showOnLaunch = false
     var pairingInProgress = false
-    private var desktopWindow: DesktopWindow?
-    var desktop: DesktopWindow {
-        if let desktopWindow { return desktopWindow }
-        let window = DesktopWindow(server: config.server)
-        window.didClose = { [weak self] in DispatchQueue.main.async { self?.updates.installIfReady() } }
-        desktopWindow = window
-        return window
-    }
     let updates = AutomaticUpdates()
     var counter = Counter()
     var tap: CFMachPort?
@@ -124,7 +116,7 @@ final class Agent: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(appChanged), name: NSWorkspace.didActivateApplicationNotification, object: nil)
         appChanged()
         if config.token != nil { installTap() }
-        updates.canRestart = { [weak self] in self?.desktopWindow?.window?.isVisible != true && self?.pairingInProgress != true }
+        updates.canRestart = { [weak self] in self?.pairingInProgress != true }
         updates.prepareToRestart = { [weak self] in guard let self else { return }; self.counter.stopMouseActivity(); try save(self.counter.buckets, to: countersURL) }
         updates.didChange = { [weak self] in
             guard let self else { return }
@@ -135,7 +127,7 @@ final class Agent: NSObject, NSApplicationDelegate {
         updates.start()
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(dashboard), name: NSNotification.Name("dev.typegrid.showWindow"), object: nil)
         installApplicationMenu()
-        if showOnLaunch { desktop.show() }
+        if showOnLaunch { dashboard() }
         updateStatusDisplay()
         displayTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.updateStatusDisplay() }
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.tick() }
@@ -165,7 +157,7 @@ final class Agent: NSObject, NSApplicationDelegate {
     }
     func application(_ application:NSApplication,open urls:[URL]) {
         if urls.contains(where: { $0.scheme == "typegrid" && $0.host == "pair" }) { pairInApp() }
-        if urls.contains(where: { $0.scheme == "typegrid" && $0.host == "open" }) { desktop.show() }
+        if urls.contains(where: { $0.scheme == "typegrid" && $0.host == "open" }) { dashboard() }
         for url in urls where url.scheme == "typegrid" && url.host == "connect" {
             let provider=url.path.trimmingCharacters(in:CharacterSet(charactersIn:"/"))
             if ["codex","claude","cursor"].contains(provider){connectProvider(provider)}
@@ -198,11 +190,14 @@ final class Agent: NSObject, NSApplicationDelegate {
         CGEvent.tapEnable(tap: tap, enable: true)
     }
     @objc func appChanged() { isDev = config.classify && devApps.contains(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "") }
-    @objc func dashboard() { desktop.show(path: "/app/dashboard") }
-    @objc func leaderboard() { desktop.show(path: "/app/leaderboard") }
+    @objc func dashboard() { openWorkspace("/app/dashboard") }
+    @objc func leaderboard() { openWorkspace("/app/leaderboard") }
+    func openWorkspace(_ path: String) {
+        if let url = URL(string: path, relativeTo: URL(string: config.server)) { NSWorkspace.shared.open(url) }
+    }
     @objc func checkUpdates() { updates.check(manual: true) }
     @objc func toggleUpdates() { updates.enabled.toggle() }
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { desktop.show(); return true }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { dashboard(); return true }
     func installApplicationMenu() {
         let main = NSMenu()
         let appItem = NSMenuItem(); let appMenu = NSMenu()
@@ -223,7 +218,7 @@ final class Agent: NSObject, NSApplicationDelegate {
         pairingInProgress = true
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             do {
-                try pair { url in DispatchQueue.main.async { [weak self] in self?.desktop.show(path: url.path + (url.fragment.map { "#" + $0 } ?? "")) } }
+                try pair()
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }; self.pairingInProgress = false; self.config = loadConfig(); self.tick(); if self.tap == nil { self.installTap() }
                 }
@@ -334,8 +329,8 @@ func start() throws {
     let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
     try data.write(to: plistURL, options: .atomic)
     _ = launch(["bootout", "gui/\(getuid())/dev.typegrid.agent"])
-    guard launch(["bootstrap", "gui/\(getuid())", plistURL.path]) == 0 else { print("Could not start. Run typegrid run to diagnose."); return }
-    print("TypeGrid started. It will launch at sign-in. Allow Input Monitoring in macOS System Settings, then run typegrid restart.")
+    guard launch(["bootstrap", "gui/\(getuid())", plistURL.path]) == 0 else { throw codingSetupError("Could not start TypeGrid. Rerun the installer to retry startup.") }
+    print("TypeGrid started. It will launch at sign-in. Allow Input Monitoring in macOS System Settings if prompted. TypeGrid retries automatically; if macOS requires a relaunch, rerun the installer.")
 }
 @main struct Main {
     static func main() {
