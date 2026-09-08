@@ -423,9 +423,9 @@ function DemoDashboard() {
             <small>Mouse and trackpad clicks</small>
           </div>
           <div>
-            <span>Active typing</span>
-            <strong>1h 42m</strong>
-            <small>Your time in motion</small>
+            <span>Active mouse</span>
+            <strong>38m</strong>
+            <small>Pauses after 3 seconds idle</small>
           </div>
         </div>
         <div className="split chart-heading">
@@ -640,7 +640,7 @@ export function TypeGrid({
                           </Link>
                         </div>
                       )}
-                      <div className="metrics input-metrics">
+                      <div className="metrics input-metrics mouse-metrics">
                         {[
                           [
                             "Keystrokes today",
@@ -656,6 +656,11 @@ export function TypeGrid({
                             "Estimated words",
                             fmt(daily.words),
                             "5 keystrokes ≈ 1 word",
+                          ],
+                          [
+                            "Active mouse",
+                            `${Math.floor(daily.mouseActive / 60)}m ${Math.floor(daily.mouseActive % 60)}s`,
+                            "Pauses after 3 seconds without mouse activity",
                           ],
                           [
                             "Active typing",
@@ -1480,7 +1485,7 @@ function Privacy() {
       {[
         [
           "What the agent sees",
-          "A macOS key-down or mouse-button-down event occurred. The callback increments separate keyboard and click counters without inspecting key codes, characters, click positions, or clicked content. Left, right, and other mouse buttons share one click total; trackpad clicks count too. Movement, scrolling, and button releases are not counted. It never reads typed strings, the clipboard, window titles, file paths, browser URLs, or screenshots.",
+          "A macOS key-down or mouse-button-down event occurred. The callback increments separate keyboard and click counters without inspecting key codes, characters, click positions, or clicked content. Left, right, and other mouse buttons share one click total; trackpad clicks count too. Movement, dragging, clicks, and scrolling also keep a separate active mouse timer running. It stops three seconds after the last event. Movement and scrolling do not add clicks; button releases are ignored. It never reads typed strings, the clipboard, window titles, file paths, browser URLs, or screenshots.",
         ],
         [
           "What stays on your machine",
@@ -1488,7 +1493,7 @@ function Privacy() {
         ],
         [
           "What reaches the server",
-          "Device ID, UTC hour, cumulative keystrokes and clicks, active typing seconds, session count, dev-app count, and estimated peak WPM. Hourly buckets update every five seconds while connected. No individual-event timestamps or sequences are persisted or transmitted.",
+          "Device ID, UTC hour, cumulative keystrokes and clicks, active typing and active mouse seconds, session count, dev-app count, and estimated peak WPM. Hourly buckets update every five seconds while connected. No individual-event timestamps or sequences are persisted or transmitted.",
         ],
         [
           "What other people can see",

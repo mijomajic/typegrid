@@ -57,3 +57,5 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS input_monitoring boolean;
 
 -- Additive migration: old agents and existing activity keep working.
 ALTER TABLE buckets ADD COLUMN IF NOT EXISTS clicks integer NOT NULL DEFAULT 0 CHECK(clicks BETWEEN 0 AND 360000);
+
+ALTER TABLE buckets ADD COLUMN IF NOT EXISTS mouse_active_seconds double precision NOT NULL DEFAULT 0 CHECK(mouse_active_seconds BETWEEN 0 AND 3600);

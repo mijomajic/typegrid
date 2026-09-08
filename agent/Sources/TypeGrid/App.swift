@@ -157,7 +157,7 @@ final class Agent: NSObject, NSApplicationDelegate {
             status.button?.toolTip = statusText
             return
         }
-        tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly, eventsOfInterest: [CGEventType.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown].reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }, callback: { _, type, _, info in
+        tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly, eventsOfInterest: [CGEventType.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown, .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .scrollWheel].reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }, callback: { _, type, _, info in
             // Deliberately unnamed event argument: no key code, text, position, flags or timestamp is read.
             guard let info else { return nil }
             let agent = Unmanaged<Agent>.fromOpaque(info).takeUnretainedValue()
@@ -165,6 +165,7 @@ final class Agent: NSObject, NSApplicationDelegate {
             if !agent.paused {
                 if type == .keyDown { agent.counter.record(isDev: agent.isDev) }
                 else if type == .leftMouseDown || type == .rightMouseDown || type == .otherMouseDown { agent.counter.recordClick() }
+                else if type == .mouseMoved || type == .leftMouseDragged || type == .rightMouseDragged || type == .otherMouseDragged || type == .scrollWheel { agent.counter.recordMouseActivity() }
             }
             // Listen-only event taps cannot alter or suppress the input event.
             return nil
@@ -176,25 +177,29 @@ final class Agent: NSObject, NSApplicationDelegate {
     }
     @objc func appChanged() { isDev = config.classify && devApps.contains(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "") }
     @objc func dashboard() { if let url = URL(string: config.server + "/dashboard") { NSWorkspace.shared.open(url) } }
-    @objc func toggle() { paused.toggle(); tick() }
-    @objc func quit() { try? save(counter.buckets, to: countersURL); NSApplication.shared.terminate(nil) }
+    @objc func toggle() { counter.stopMouseActivity(); paused.toggle(); tick() }
+    @objc func quit() { counter.stopMouseActivity(); try? save(counter.buckets, to: countersURL); NSApplication.shared.terminate(nil) }
     // Redraw aggregate totals locally once per second; no additional sync or event inspection.
     func updateStatusDisplay() {
+        if paused || tap == nil || !CGPreflightListenEventAccess() { counter.stopMouseActivity() }
+        else { counter.advanceMouseActivity() }
         let today = ISO8601DateFormatter().string(from: Date()).prefix(10)
         let total = counter.buckets.values.filter { $0.hour.hasPrefix(today) }.reduce(0) { $0 + $1.keystrokes }
         let clicks = counter.buckets.values.filter { $0.hour.hasPrefix(today) }.reduce(0) { $0 + $1.clicks }
-        status.menu?.items.first?.title = paused ? "Tracking paused" : tap == nil ? "Allow Input Monitoring" : "\(total.formatted()) keystrokes · \(clicks.formatted()) clicks today"
+        let mouseSeconds = counter.buckets.values.filter { $0.hour.hasPrefix(today) }.reduce(0.0) { $0 + $1.mouseActiveSeconds }
+        status.menu?.items.first?.title = paused ? "Tracking paused" : tap == nil ? "Allow Input Monitoring" : "\(total.formatted()) keystrokes · \(clicks.formatted()) clicks · \(Int(mouseSeconds / 60))m active mouse today"
         status.menu?.items.first(where: { $0.action == #selector(toggle) })?.title = paused ? "Resume tracking" : "Pause tracking"
         status.button?.title = " " + total.formatted() + (paused ? " Ⅱ" : tap == nil ? " !" : "")
-        status.button?.setAccessibilityLabel("TypeGrid, \(total.formatted()) keystrokes · \(clicks.formatted()) clicks today, UTC" + (paused ? ", paused" : tap == nil ? ", Input Monitoring required" : ""))
+        status.button?.setAccessibilityLabel("TypeGrid, \(total.formatted()) keystrokes · \(clicks.formatted()) clicks · \(Int(mouseSeconds / 60))m active mouse today, UTC" + (paused ? ", paused" : tap == nil ? ", Input Monitoring required" : ""))
         status.button?.appearsDisabled = paused || tap == nil
-        status.button?.toolTip = "TypeGrid — \(total.formatted()) keystrokes · \(clicks.formatted()) clicks today (UTC). \(statusText). We count. We don’t read."
+        status.button?.toolTip = "TypeGrid — \(total.formatted()) keystrokes · \(clicks.formatted()) clicks · \(Int(mouseSeconds / 60))m active mouse today (UTC). \(statusText). We count. We don’t read."
     }
     func tick() {
         config = loadConfig()
         startCodingListeners()
         if config.deviceId != lastDevice { counter = Counter(); acknowledged = [:]; lastDevice = config.deviceId; codingListeners.values.forEach{$0.cancel()};codingListeners.removeAll();startCodingListeners() }
         if tap == nil && CGPreflightListenEventAccess() { installTap() }
+        if paused || tap == nil || !CGPreflightListenEventAccess() { counter.stopMouseActivity() } else { counter.advanceMouseActivity() }
         appChanged(); counter.prune()
         if !codingInFlight, let files = try? FileManager.default.contentsOfDirectory(at:root,includingPropertiesForKeys:nil) {
             for file in files where file.lastPathComponent.hasPrefix("coding-") && file.pathExtension == "json" {
@@ -268,7 +273,7 @@ func start() throws {
         let command = CommandLine.arguments.dropFirst().first ?? (Bundle.main.bundleIdentifier == "dev.typegrid.agent" ? "run" : "help")
         do {
             switch command {
-            case "version": print("0.1.8")
+            case "version": print("0.1.9")
             case "is-paired": exit(loadConfig().token == nil ? 1 : 0)
             case "pair": try pair()
             case "connect", "disconnect":
@@ -289,8 +294,8 @@ func start() throws {
             case "start", "restart": try start()
             case "stop": _ = launch(["bootout", "gui/\(getuid())/dev.typegrid.agent"]); print("TypeGrid stopped. Run typegrid start to resume.")
             case "classify": var c = loadConfig(); c.classify = CommandLine.arguments.last != "off"; try save(c, to: configURL); print("App classification \(c.classify ? "on" : "off").")
-            case "status": let c = loadConfig(); print("TypeGrid 0.1.8\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
-            default: print("TypeGrid 0.1.8 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
+            case "status": let c = loadConfig(); print("TypeGrid 0.1.9\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
+            default: print("TypeGrid 0.1.9 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
             }
         } catch { fputs("TypeGrid: \(error.localizedDescription)\n", stderr); exit(1) }
     }

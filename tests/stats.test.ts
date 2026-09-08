@@ -151,3 +151,15 @@ test("clicks aggregate across buckets without changing typing metrics", () => {
   assert.equal(clickOnly.words, 0);
   assert.equal(clickOnly.xp, 0);
 });
+
+
+test("mouse time defaults for old agents, accepts fractional seconds, and rejects invalid totals", () => {
+  assert.equal(ingestSchema.parse({ buckets: [bucket] }).buckets[0].mouseActiveSeconds, 0);
+  assert.equal(ingestSchema.parse({ buckets: [{ ...bucket, mouseActiveSeconds: 2.5 }] }).buckets[0].mouseActiveSeconds, 2.5);
+  for (const mouseActiveSeconds of [-1, 3600.1, Infinity, NaN, "3", null])
+    assert.equal(ingestSchema.safeParse({ buckets: [{ ...bucket, mouseActiveSeconds }] }).success, false);
+  const baseline = summarize([bucket]);
+  const active = summarize([{ ...bucket, mouseActiveSeconds: 12.5 }]);
+  assert.equal(active.mouseActive, 12.5);
+  assert.deepEqual({ ...active, mouseActive: 0 }, baseline);
+});

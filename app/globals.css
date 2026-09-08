@@ -3315,3 +3315,8 @@ body:has(.app-layout) .footer { border-top: 0; border-bottom: 0; }
   font: inherit;
 }
 .activity select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.metrics.input-metrics.mouse-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 900px) {
+  .metrics.input-metrics.mouse-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

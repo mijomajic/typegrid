@@ -2,6 +2,7 @@ export type Bucket = {
   hour: string;
   keystrokes: number;
   clicks?: number;
+  mouseActiveSeconds?: number;
   activeSeconds: number;
   sessions: number;
   devKeystrokes: number;
@@ -11,6 +12,7 @@ export function summarize(buckets: Bucket[], now = new Date()) {
   const days = new Map<string, number>();
   let keys = 0,
     clicks = 0,
+    mouseActive = 0,
     active = 0,
     sessions = 0,
     dev = 0,
@@ -18,6 +20,7 @@ export function summarize(buckets: Bucket[], now = new Date()) {
   for (const b of buckets) {
     keys += b.keystrokes;
     clicks += b.clicks ?? 0;
+    mouseActive += b.mouseActiveSeconds ?? 0;
     active += b.activeSeconds;
     sessions += b.sessions;
     dev += b.devKeystrokes;
@@ -40,6 +43,7 @@ export function summarize(buckets: Bucket[], now = new Date()) {
   return {
     keys,
     clicks,
+    mouseActive,
     words: Math.floor(keys / 5),
     active,
     sessions,

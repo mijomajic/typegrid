@@ -2,7 +2,7 @@
 
 ## The boundary
 
-`agent/Sources/TypeGrid/App.swift` installs a listen-only CGEvent tap for key-down and mouse-button-down notifications. Its event parameter is deliberately unnamed. It cannot enter the counter API: `Counter.record(at:isDev:)` accepts only the current clock and a local category boolean. `Counter.recordClick(at:)` accepts only the current clock and increments a combined click total. No click coordinates or button identities are stored. Movement, scrolling, and button releases are excluded. Clicks never change typing metrics. There are no calls to read Unicode strings, key codes, event flags, the clipboard, window titles, browser URLs or paths.
+`agent/Sources/TypeGrid/App.swift` installs a listen-only CGEvent tap for keyboard, mouse-button, movement, drag, and scroll notifications. Its event parameter is deliberately unnamed. It cannot enter the counter API: `Counter.record(at:isDev:)` accepts only the current clock and a local category boolean. `Counter.recordClick(at:)` accepts only the current clock and increments a combined click total. No click coordinates or button identities are stored. Movement, dragging, clicks, and scrolling reset a separate three-second active mouse timer. Only accumulated active mouse seconds are persisted and synced; its event timing state stays in memory. No event coordinates are read. Button releases are excluded, and movement/scrolling never increment clicks. Clicks never change typing metrics. There are no calls to read Unicode strings, key codes, event flags, the clipboard, window titles, browser URLs or paths.
 
 The operating system grants the process broad Input Monitoring permission. Our promise is enforced by the code path, not by pretending that permission is narrower than it is. Review the source before granting it. macOS Secure Input is respected.
 
@@ -17,6 +17,7 @@ Only this allowlisted shape is accepted by ingestion:
       "hour": "2026-09-07T10:00:00Z",
       "keystrokes": 140,
       "clicks": 35,
+      "mouseActiveSeconds": 12.5,
       "activeSeconds": 30,
       "sessions": 1,
       "devKeystrokes": 90,

@@ -32,6 +32,7 @@ export function ProfileHistory({
       keys: number;
       clicks: number;
       active: number;
+      mouseActive: number;
       sessions: number;
       peak: number;
       tokens: number;
@@ -45,6 +46,7 @@ export function ProfileHistory({
         keys: 0,
         clicks: 0,
         active: 0,
+        mouseActive: 0,
         sessions: 0,
         peak: 0,
         tokens: 0,
@@ -56,6 +58,7 @@ export function ProfileHistory({
     r.keys += b.keystrokes;
     r.clicks += b.clicks ?? 0;
     r.active += b.activeSeconds;
+    r.mouseActive += b.mouseActiveSeconds ?? 0;
     r.sessions += b.sessions;
     r.peak = Math.max(r.peak, b.peakWpm);
   }
@@ -160,6 +163,7 @@ export function ProfileHistory({
               <span>
                 {format(Math.round(stats.active / 60))} min active typing
               </span>
+              <span>{format(Math.floor(stats.mouseActive / 60))} min {format(Math.floor(stats.mouseActive % 60))} sec active mouse</span>
               <span>{format(stats.sessions)} sessions</span>
               <span>{stats.peak} peak WPM</span>
               <span>{format(stats.dev)} dev keystrokes</span>
@@ -249,6 +253,7 @@ export function ProfileHistory({
                       {detailed && (
                         <>
                           <th scope="col">Active min</th>
+                          <th scope="col">Mouse min</th>
                           <th scope="col">Sessions</th>
                           <th scope="col">Peak WPM</th>
                         </>
@@ -268,6 +273,7 @@ export function ProfileHistory({
                           {detailed && (
                             <>
                               <td>{format(Math.round(r.active / 60))}</td>
+                              <td>{format(Math.round(r.mouseActive / 60))}</td>
                               <td>{format(r.sessions)}</td>
                               <td>{r.peak}</td>
                             </>
