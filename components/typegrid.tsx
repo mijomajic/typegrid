@@ -72,9 +72,9 @@ async function api(path: string, body?: unknown, method?: string) {
     throw new Error(d.error || "Something went wrong. Please try again.");
   return d;
 }
-function Logo() {
+function Logo({ workspace = false }: { workspace?: boolean }) {
   return (
-    <Link href="/" className="logo" aria-label="TypeGrid home">
+    <Link href={workspace ? "/app" : "/"} className="logo" aria-label={workspace ? "TypeGrid workspace" : "TypeGrid home"}>
       <svg className="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
         <path
           d="M20 6H44Q48 6 51 9L55 13L45 23L41 19H23L19 23V41L23 45H41L45 41V37H32V27H58V45Q58 49 55 52L52 55Q49 58 45 58H19Q15 58 12 55L9 52Q6 49 6 45V19Q6 15 9 12L12 9Q15 6 20 6Z"
@@ -82,7 +82,7 @@ function Logo() {
           fill="currentColor"
         />
       </svg>
-      typegrid<span className="beta">BETA</span>
+      typegrid{!workspace && <span className="beta">BETA</span>}
     </Link>
   );
 }
@@ -194,7 +194,7 @@ function Header() {
       <div className="container header-inner">
         <Logo />
         <nav aria-label="Website">
-          <Link href="/#download">Download for Mac</Link>
+          <a href={macDownload}>Download for Mac</a>
           <Link href="/privacy">Privacy</Link>
           <a href={repo} target="_blank" rel="noreferrer">
             GitHub <ExternalLinkIcon />
@@ -210,9 +210,9 @@ function Header() {
 function AppHeader({ username }: { username?: string }) {
   return (
     <header className="workspace-header">
-      <Link href="/app" className="workspace-brand">
-        typegrid<span>Workspace</span>
-      </Link>
+      <div className="workspace-brand">
+        <Logo workspace /><span className="workspace-label">Workspace</span>
+      </div>
       <nav aria-label="Workspace account">
         {username ? (
           <Link href="/app/settings">@{username}</Link>
@@ -264,23 +264,24 @@ function Home() {
               <span className="mono install-label">
                 INSTALL TYPEGRID · MACOS
               </span>
-              <Command />
               <p className="install-note">
-                First,{" "}
-                <Link href="/app/connect">
-                  sign in and choose your profile visibility
-                </Link>
-                . Then run the command above to install.
+                Download the app, drag it into Applications, and open TypeGrid.
               </p>
               <p className="install-note">
-                Paste into Terminal · macOS 13+ · Apple Command Line Tools
-                required
+                Then,{" "}
+                <Link href="/app/connect">
+                  sign in and choose your profile visibility
+                </Link>{" "}
+                to connect your Mac.
+              </p>
+              <p className="install-note">
+                macOS 13+ · Apple silicon & Intel · Automatic updates
               </p>
             </div>
             <div className="hero-actions">
-              <Link href="/app/connect" className="button primary">
-                Get TypeGrid for Mac <ArrowRightIcon />
-              </Link>
+              <a href={macDownload} className="button primary">
+                <DownloadIcon /> Download for Mac
+              </a>
               <a className="button" href={repo}>
                 <GitHubLogoIcon /> Star on GitHub
               </a>
@@ -364,17 +365,17 @@ function Home() {
               could be your first.
             </h2>
             <p>
-              Sign in. Choose your visibility. Install. Watch your stats come
+              Download. Sign in. Choose your visibility. Watch your stats come
               alive.
             </p>
           </div>
           <div>
-            <Command />
+            <a href={macDownload} className="button primary"><DownloadIcon /> Download for Mac</a>
             <p className="install-note">
               <Link href="/app/connect">
                 Sign in and choose your profile visibility
               </Link>{" "}
-              before installing.
+              when connecting your Mac.
             </p>
             <p className="mono muted install-note">
               macOS 13+ · Apple Silicon & Intel · No Electron
