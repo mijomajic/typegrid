@@ -90,15 +90,7 @@ final class Agent: NSObject, NSApplicationDelegate {
         startCodingListeners()
         if let data = try? Data(contentsOf: countersURL), let buckets = try? JSONDecoder().decode([String: Bucket].self, from: data) { counter = Counter(buckets: buckets) }
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        let icon = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
-            NSColor.labelColor.setFill()
-            BrandMark.path(in: NSRect(x: 0, y: 0, width: 18, height: 18)).fill()
-            return true
-        }
-        icon.isTemplate = true
-        status.button?.image = icon
-        status.button?.imagePosition = .imageLeading
-        status.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        status.button?.imagePosition = .imageOnly
         status.button?.setAccessibilityLabel("TypeGrid")
         let menu = NSMenu()
         menu.addItem(withTitle: "TypeGrid · starting", action: nil, keyEquivalent: "")
@@ -189,7 +181,11 @@ final class Agent: NSObject, NSApplicationDelegate {
         let mouseSeconds = counter.buckets.values.filter { $0.hour.hasPrefix(today) }.reduce(0.0) { $0 + $1.mouseActiveSeconds }
         status.menu?.items.first?.title = paused ? "Tracking paused" : tap == nil ? "Allow Input Monitoring" : "\(total.formatted()) keystrokes · \(clicks.formatted()) clicks · \(Int(mouseSeconds / 60))m active mouse today"
         status.menu?.items.first(where: { $0.action == #selector(toggle) })?.title = paused ? "Resume tracking" : "Pause tracking"
-        status.button?.title = " " + total.formatted() + (paused ? " Ⅱ" : tap == nil ? " !" : "")
+        status.button?.title = ""
+        status.button?.image = MenuBarCounts.image(
+            keystrokes: total.formatted(), clicks: clicks.formatted(),
+            indicator: paused ? "Ⅱ" : tap == nil ? "!" : nil
+        )
         status.button?.setAccessibilityLabel("TypeGrid, \(total.formatted()) keystrokes · \(clicks.formatted()) clicks · \(Int(mouseSeconds / 60))m active mouse today, UTC" + (paused ? ", paused" : tap == nil ? ", Input Monitoring required" : ""))
         status.button?.appearsDisabled = paused || tap == nil
         status.button?.toolTip = "TypeGrid — \(total.formatted()) keystrokes · \(clicks.formatted()) clicks · \(Int(mouseSeconds / 60))m active mouse today (UTC). \(statusText). We count. We don’t read."
@@ -273,7 +269,7 @@ func start() throws {
         let command = CommandLine.arguments.dropFirst().first ?? (Bundle.main.bundleIdentifier == "dev.typegrid.agent" ? "run" : "help")
         do {
             switch command {
-            case "version": print("0.1.9")
+            case "version": print("0.1.10")
             case "is-paired": exit(loadConfig().token == nil ? 1 : 0)
             case "pair": try pair()
             case "connect", "disconnect":
@@ -294,8 +290,8 @@ func start() throws {
             case "start", "restart": try start()
             case "stop": _ = launch(["bootout", "gui/\(getuid())/dev.typegrid.agent"]); print("TypeGrid stopped. Run typegrid start to resume.")
             case "classify": var c = loadConfig(); c.classify = CommandLine.arguments.last != "off"; try save(c, to: configURL); print("App classification \(c.classify ? "on" : "off").")
-            case "status": let c = loadConfig(); print("TypeGrid 0.1.9\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
-            default: print("TypeGrid 0.1.9 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
+            case "status": let c = loadConfig(); print("TypeGrid 0.1.10\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
+            default: print("TypeGrid 0.1.10 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
             }
         } catch { fputs("TypeGrid: \(error.localizedDescription)\n", stderr); exit(1) }
     }
