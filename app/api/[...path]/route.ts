@@ -241,6 +241,7 @@ async function handler(
           : buckets.map((b) => ({
               ...b,
               activeSeconds: 0,
+              mouseActiveSeconds: 0,
               sessions: 0,
               peakWpm: 0,
             })),
@@ -355,7 +356,7 @@ async function handler(
         payload = ingestSchema.parse(await body(req));
       await db().begin(async (tx) => {
         for (const b of payload.buckets)
-          await tx`INSERT INTO buckets(device_id,hour,keystrokes,clicks,active_seconds,sessions,dev_keystrokes,peak_wpm) VALUES(${d.id},${b.hour},${b.keystrokes},${b.clicks},${b.activeSeconds},${b.sessions},${b.devKeystrokes},${b.peakWpm}) ON CONFLICT(device_id,hour) DO UPDATE SET clicks=GREATEST(buckets.clicks,excluded.clicks),keystrokes=GREATEST(buckets.keystrokes,excluded.keystrokes),active_seconds=GREATEST(buckets.active_seconds,excluded.active_seconds),sessions=GREATEST(buckets.sessions,excluded.sessions),dev_keystrokes=GREATEST(buckets.dev_keystrokes,excluded.dev_keystrokes),peak_wpm=GREATEST(buckets.peak_wpm,excluded.peak_wpm)`;
+          await tx`INSERT INTO buckets(device_id,hour,keystrokes,clicks,mouse_active_seconds,active_seconds,sessions,dev_keystrokes,peak_wpm) VALUES(${d.id},${b.hour},${b.keystrokes},${b.clicks},${b.mouseActiveSeconds},${b.activeSeconds},${b.sessions},${b.devKeystrokes},${b.peakWpm}) ON CONFLICT(device_id,hour) DO UPDATE SET mouse_active_seconds=GREATEST(buckets.mouse_active_seconds,excluded.mouse_active_seconds),clicks=GREATEST(buckets.clicks,excluded.clicks),keystrokes=GREATEST(buckets.keystrokes,excluded.keystrokes),active_seconds=GREATEST(buckets.active_seconds,excluded.active_seconds),sessions=GREATEST(buckets.sessions,excluded.sessions),dev_keystrokes=GREATEST(buckets.dev_keystrokes,excluded.dev_keystrokes),peak_wpm=GREATEST(buckets.peak_wpm,excluded.peak_wpm)`;
         await tx`UPDATE devices SET last_seen=now() WHERE id=${d.id}`;
         if (payload.inputMonitoring !== undefined)
           await tx`UPDATE devices SET input_monitoring=${payload.inputMonitoring} WHERE id=${d.id}`;

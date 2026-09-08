@@ -150,8 +150,12 @@ Keep it small. Help with a reviewed Linux/Windows native tracker, accessibility,
 
 ### Click counting
 
-The native agent counts left, right, and other mouse-button presses in one hourly click total, including trackpad clicks. It does not inspect coordinates, button identities, clicked content, movement, or scrolling. Double-clicks count as two presses. Pause applies to both keyboard and mouse counting. Clicks sync and retry with the existing hourly counters, and appear in the dashboard, activity chart, profile history, and data export. Typing metrics and keyboard rankings remain keyboard-only.
+The native agent counts left, right, and other mouse-button presses in one hourly click total, including trackpad clicks. It does not inspect coordinates, button identities, clicked content, movement paths, or scroll distances. Double-clicks count as two presses. Pause applies to both keyboard and mouse counting. Clicks sync and retry with the existing hourly counters, and appear in the dashboard, activity chart, profile history, and data export. Typing metrics and keyboard rankings remain keyboard-only.
 
 Roll out the additive database migration (`npm run db:migrate`) before deploying the updated server, then release the updated native agent. Existing agents remain compatible; old saved buckets load with zero clicks. Earlier click activity cannot be recovered. Users need the updated agent to start counting clicks.
 
 See [Desktop app and automatic updates](docs/DESKTOP.md) for building the universal Mac download, authentication, update behavior, and rollout requirements.
+
+### Active mouse time
+
+Mouse movement, dragging, clicks, and scrolling start or extend activity. The timer stops exactly three seconds after the last event, including that idle grace period. Pause stops it immediately. Only accumulated seconds are saved, split at UTC hour boundaries; no positions, scroll distances, button identities, or individual event times are persisted. Mouse and typing time may overlap and stay separate. Mouse timing details are owner-only, like active typing time. Apply the additive schema migration before deploying this API and distributing the updated agent.

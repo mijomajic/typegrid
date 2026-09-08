@@ -101,15 +101,7 @@ final class Agent: NSObject, NSApplicationDelegate {
         startCodingListeners()
         if let data = try? Data(contentsOf: countersURL), let buckets = try? JSONDecoder().decode([String: Bucket].self, from: data) { counter = Counter(buckets: buckets) }
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        let icon = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
-            NSColor.labelColor.setFill()
-            BrandMark.path(in: NSRect(x: 0, y: 0, width: 18, height: 18)).fill()
-            return true
-        }
-        icon.isTemplate = true
-        status.button?.image = icon
-        status.button?.imagePosition = .imageLeading
-        status.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        status.button?.imagePosition = .imageOnly
         status.button?.setAccessibilityLabel("TypeGrid")
         let menu = NSMenu()
         menu.addItem(withTitle: "TypeGrid · starting", action: nil, keyEquivalent: "")
@@ -133,7 +125,7 @@ final class Agent: NSObject, NSApplicationDelegate {
         appChanged()
         if config.token != nil { installTap() }
         updates.canRestart = { [weak self] in self?.desktopWindow?.window?.isVisible != true && self?.pairingInProgress != true }
-        updates.prepareToRestart = { [weak self] in guard let self else { return }; try save(self.counter.buckets, to: countersURL) }
+        updates.prepareToRestart = { [weak self] in guard let self else { return }; self.counter.stopMouseActivity(); try save(self.counter.buckets, to: countersURL) }
         updates.didChange = { [weak self] in
             guard let self else { return }
             self.status.menu?.items.first(where: { $0.action == #selector(self.toggleUpdates) })?.state = self.updates.enabled ? .on : .off
@@ -187,7 +179,7 @@ final class Agent: NSObject, NSApplicationDelegate {
             status.button?.toolTip = statusText
             return
         }
-        tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly, eventsOfInterest: [CGEventType.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown].reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }, callback: { _, type, _, info in
+        tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly, eventsOfInterest: [CGEventType.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown, .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .scrollWheel].reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }, callback: { _, type, _, info in
             // Deliberately unnamed event argument: no key code, text, position, flags or timestamp is read.
             guard let info else { return nil }
             let agent = Unmanaged<Agent>.fromOpaque(info).takeUnretainedValue()
@@ -195,6 +187,7 @@ final class Agent: NSObject, NSApplicationDelegate {
             if !agent.paused {
                 if type == .keyDown { agent.counter.record(isDev: agent.isDev) }
                 else if type == .leftMouseDown || type == .rightMouseDown || type == .otherMouseDown { agent.counter.recordClick() }
+                else if type == .mouseMoved || type == .leftMouseDragged || type == .rightMouseDragged || type == .otherMouseDragged || type == .scrollWheel { agent.counter.recordMouseActivity() }
             }
             // Listen-only event taps cannot alter or suppress the input event.
             return nil
@@ -239,25 +232,33 @@ final class Agent: NSObject, NSApplicationDelegate {
             }
         }
     }
-    @objc func toggle() { paused.toggle(); tick() }
-    @objc func quit() { try? save(counter.buckets, to: countersURL); NSApplication.shared.terminate(nil) }
+    @objc func toggle() { counter.stopMouseActivity(); paused.toggle(); tick() }
+    @objc func quit() { counter.stopMouseActivity(); try? save(counter.buckets, to: countersURL); NSApplication.shared.terminate(nil) }
     // Redraw aggregate totals locally once per second; no additional sync or event inspection.
     func updateStatusDisplay() {
+        if paused || tap == nil || !CGPreflightListenEventAccess() { counter.stopMouseActivity() }
+        else { counter.advanceMouseActivity() }
         let today = ISO8601DateFormatter().string(from: Date()).prefix(10)
         let total = counter.buckets.values.filter { $0.hour.hasPrefix(today) }.reduce(0) { $0 + $1.keystrokes }
         let clicks = counter.buckets.values.filter { $0.hour.hasPrefix(today) }.reduce(0) { $0 + $1.clicks }
-        status.menu?.items.first?.title = paused ? "Tracking paused" : tap == nil ? "Allow Input Monitoring" : "\(total.formatted()) keystrokes · \(clicks.formatted()) clicks today"
+        let mouseSeconds = counter.buckets.values.filter { $0.hour.hasPrefix(today) }.reduce(0.0) { $0 + $1.mouseActiveSeconds }
+        status.menu?.items.first?.title = paused ? "Tracking paused" : tap == nil ? "Allow Input Monitoring" : "\(total.formatted()) keystrokes · \(clicks.formatted()) clicks · \(Int(mouseSeconds / 60))m active mouse today"
         status.menu?.items.first(where: { $0.action == #selector(toggle) })?.title = paused ? "Resume tracking" : "Pause tracking"
-        status.button?.title = " " + total.formatted() + (paused ? " Ⅱ" : tap == nil ? " !" : "")
-        status.button?.setAccessibilityLabel("TypeGrid, \(total.formatted()) keystrokes · \(clicks.formatted()) clicks today, UTC" + (paused ? ", paused" : tap == nil ? ", Input Monitoring required" : ""))
+        status.button?.title = ""
+        status.button?.image = MenuBarCounts.image(
+            keystrokes: total.formatted(), clicks: clicks.formatted(),
+            indicator: paused ? "Ⅱ" : tap == nil ? "!" : nil
+        )
+        status.button?.setAccessibilityLabel("TypeGrid, \(total.formatted()) keystrokes · \(clicks.formatted()) clicks · \(Int(mouseSeconds / 60))m active mouse today, UTC" + (paused ? ", paused" : tap == nil ? ", Input Monitoring required" : ""))
         status.button?.appearsDisabled = paused || tap == nil
-        status.button?.toolTip = "TypeGrid — \(total.formatted()) keystrokes · \(clicks.formatted()) clicks today (UTC). \(statusText). We count. We don’t read."
+        status.button?.toolTip = "TypeGrid — \(total.formatted()) keystrokes · \(clicks.formatted()) clicks · \(Int(mouseSeconds / 60))m active mouse today (UTC). \(statusText). We count. We don’t read."
     }
     func tick() {
         config = loadConfig()
         startCodingListeners()
         if config.deviceId != lastDevice { counter = Counter(); acknowledged = [:]; lastDevice = config.deviceId; codingListeners.values.forEach{$0.cancel()};codingListeners.removeAll();startCodingListeners() }
         if config.token != nil && tap == nil && CGPreflightListenEventAccess() { installTap() }
+        if paused || tap == nil || !CGPreflightListenEventAccess() { counter.stopMouseActivity() } else { counter.advanceMouseActivity() }
         appChanged(); counter.prune()
         if !codingInFlight, let files = try? FileManager.default.contentsOfDirectory(at:root,includingPropertiesForKeys:nil) {
             for file in files where file.lastPathComponent.hasPrefix("coding-") && file.pathExtension == "json" {

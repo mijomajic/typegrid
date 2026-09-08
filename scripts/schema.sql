@@ -64,3 +64,5 @@ CREATE TABLE IF NOT EXISTS desktop_logins (
  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
  expires_at timestamptz NOT NULL
 );
+
+ALTER TABLE buckets ADD COLUMN IF NOT EXISTS mouse_active_seconds double precision NOT NULL DEFAULT 0 CHECK(mouse_active_seconds BETWEEN 0 AND 3600);

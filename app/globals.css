@@ -3332,3 +3332,7 @@ body:has(.app-layout) .footer { border-top: 0; border-bottom: 0; }
   .workspace-header nav { gap: 14px; }
   .workspace-brand span { display: none; }
 }
+.metrics.input-metrics.mouse-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 900px) {
+  .metrics.input-metrics.mouse-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
