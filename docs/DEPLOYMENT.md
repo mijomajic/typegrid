@@ -43,3 +43,7 @@ aggregate heartbeat. Publish the v0.1.7 source assets before deploying the insta
 3. Publish the v0.1.8 source archive and checksum, then deploy the v0.1.8 installer. Existing users rerun the install command to update.
 
 Old clients can keep sending keyboard-only payloads. Cumulative click totals use monotonic upserts, so retries or older clients cannot erase them. Saved native buckets without clicks decode as zero.
+
+## v0.2.0 desktop workspace
+
+See [DESKTOP.md](DESKTOP.md) for the coordinated native/API rollout. Apply the additive `desktop_logins` migration, publish the universal Mac app and checksum assets, and deploy the `/app` workspace plus desktop authentication endpoints.

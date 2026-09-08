@@ -217,7 +217,7 @@ export function Leaderboard() {
             </p>
             <Link
               className="button small"
-              href={metric === "tokens" ? "/integrations" : "/settings"}
+              href={metric === "tokens" ? "/app/integrations" : "/app/settings"}
             >
               {metric === "tokens"
                 ? "Connect a coding tool"
@@ -229,7 +229,7 @@ export function Leaderboard() {
       </div>
       <footer className="rankings-footer">
         <span>PUBLIC PROFILES ONLY · UTC PERIODS</span>
-        <Link href="/settings">Take your place on the Grid ↗</Link>
+        <Link href="/app/settings">Take your place on the Grid ↗</Link>
       </footer>
       {metric === "tokens" && (
         <p className="rankings-note">

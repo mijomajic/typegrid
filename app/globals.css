@@ -3315,3 +3315,20 @@ body:has(.app-layout) .footer { border-top: 0; border-bottom: 0; }
   font: inherit;
 }
 .activity select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Public website and signed-in workspace have distinct navigation and spacing. */
+.workspace-header { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 32px; border-bottom: 1px solid var(--border); }
+.workspace-brand { display: flex; align-items: baseline; gap: 16px; font-size: 22px; letter-spacing: -1px; font-weight: 600; }
+.workspace-brand span { font-size: 11px; font-weight: 400; letter-spacing: 0; color: var(--muted); padding-left: 16px; border-left: 1px solid var(--border); }
+.workspace-header nav { display: flex; gap: 24px; color: var(--muted); font-size: 12px; }
+.workspace-shell, .workspace-gateway { min-height: 100dvh; background: var(--bg); }
+.workspace-signin { max-width: 540px; margin: 12vh auto; padding: 32px 24px; }
+.workspace-signin h1 { font-size: clamp(32px, 5vw, 48px); line-height: 1.1; letter-spacing: -1.5px; margin: 20px 0; }
+.workspace-signin > p { color: var(--muted); line-height: 1.7; }
+.workspace-signin .signin { margin: 32px 0; }
+.workspace-shell .app-layout { padding-top: 32px; }
+@media (max-width: 600px) {
+  .workspace-header { padding: 16px 20px; }
+  .workspace-header nav { gap: 14px; }
+  .workspace-brand span { display: none; }
+}

@@ -90,7 +90,7 @@ export function CodingStats({ username }: { username?: string }) {
               ? "Your tools are set up. Token totals and time will appear after metrics arrive. Restart your coding tool once after connecting."
               : "Connect Codex or Claude Code to see token totals and time here."}{" "}
           {!connections.length && (
-            <a className="text-link" href="/integrations">
+            <a className="text-link" href="/app/integrations">
               Manage integrations ↗
             </a>
           )}

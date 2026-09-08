@@ -24,7 +24,7 @@ TypeGrid is a free, open-source stats network for developers and people who live
 - GitHub sign-in, editable profiles, and public leaderboards with an optional private profile
 - Daily, weekly, monthly and all-time rankings (UTC calendar periods)
 - Optional background Claude Code and Codex token stats, work-time counters, and a separate AI-token leaderboard ([setup](docs/CODING.md))
-- A native Swift macOS app with a dotted menu-bar icon, pause, background startup and offline retry
+- A native Mac workspace for stats and leaderboards, plus menu-bar tracking, background startup, offline retry, and automatic updates
 - Public GitHub repository, follower and recent-event statistics
 - Data export, device revocation and account deletion
 
@@ -38,7 +38,7 @@ macOS 13+, Apple Silicon or Intel, with [Apple Command Line Tools](https://devel
 curl -fsSL https://typegrid.dev/install.sh | sh
 ```
 
-The installer downloads the versioned source release, verifies its SHA-256 checksum, and compiles the dependency-free Swift agent locally. It opens your browser for GitHub sign-in and pairing, then starts the menu-bar agent. Building from source avoids requiring an unsigned prebuilt binary to bypass Gatekeeper. The installer creates a locally ad-hoc-signed TypeGrid.app; Developer ID signing and notarization are not included.
+The desktop download opens stats and leaderboards in TypeGrid itself. It includes automatic update checks and verified app updates. The alternative source installer downloads the versioned source release, verifies its SHA-256 checksum, and compiles the dependency-free Swift agent locally. It opens your browser for GitHub sign-in and pairing, then starts the menu-bar agent. Building from source avoids requiring an unsigned prebuilt binary to bypass Gatekeeper. The installer creates a locally ad-hoc-signed TypeGrid.app; Developer ID signing and notarization are not included.
 
 1. Open [Connect](https://typegrid.dev/connect) and sign in with GitHub.
 2. Confirm your visibility: new profiles are public by default; private is available.
@@ -153,3 +153,5 @@ Keep it small. Help with a reviewed Linux/Windows native tracker, accessibility,
 The native agent counts left, right, and other mouse-button presses in one hourly click total, including trackpad clicks. It does not inspect coordinates, button identities, clicked content, movement, or scrolling. Double-clicks count as two presses. Pause applies to both keyboard and mouse counting. Clicks sync and retry with the existing hourly counters, and appear in the dashboard, activity chart, profile history, and data export. Typing metrics and keyboard rankings remain keyboard-only.
 
 Roll out the additive database migration (`npm run db:migrate`) before deploying the updated server, then release the updated native agent. Existing agents remain compatible; old saved buckets load with zero clicks. Earlier click activity cannot be recovered. Users need the updated agent to start counting clicks.
+
+See [Desktop app and automatic updates](docs/DESKTOP.md) for building the universal Mac download, authentication, update behavior, and rollout requirements.

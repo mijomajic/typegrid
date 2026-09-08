@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-VERSION=0.1.8
+VERSION=0.2.0
 RELEASE="https://github.com/mijomajic/typegrid/releases/download/v$VERSION"
 if [ "$(uname -s)" != Darwin ]; then
   echo 'TypeGrid currently supports macOS 13+ only. Linux and Windows ports are welcome.' >&2; exit 1
@@ -36,6 +36,6 @@ if [ "${TYPEGRID_NO_PAIR:-0}" = 1 ]; then
 else
   if ! "$TYPEGRID_BINDIR/typegrid" is-paired; then "$TYPEGRID_BINDIR/typegrid" pair; fi
   "$TYPEGRID_BINDIR/typegrid" start
-  open 'https://typegrid.dev/connect'
+  "$TYPEGRID_BINDIR/typegrid" open >/dev/null 2>&1 &
   printf '\nTypeGrid is running and will start at login. Allow TypeGrid in Input Monitoring if prompted. No extra terminal commands are needed.\n'
 fi

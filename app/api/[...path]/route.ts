@@ -3,6 +3,11 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
+  desktopStartSchema,
+  desktopExchangeSchema,
+  desktopChallenge,
+} from "@/lib/desktop-auth";
+import {
   body,
   checkOrigin,
   createSession,
@@ -32,6 +37,31 @@ async function handler(
       url = new URL(req.url),
       method = req.method;
     if (path === "health") return json({ ok: true, service: "typegrid" });
+    if (path === "auth/desktop/start" && method === "POST") {
+      checkOrigin(req);
+      const { challenge } = desktopStartSchema.parse(await body(req));
+      await rate("desktop-signin-start", 500, 600);
+      const request = token();
+      await db()`DELETE FROM desktop_logins WHERE expires_at<now()`;
+      await db()`INSERT INTO desktop_logins(request_hash,challenge,expires_at) VALUES(${hash(request)},${challenge},now()+interval '10 minutes')`;
+      return json({
+        request,
+        authorizationUrl: origin() + "/api/auth/github?desktop=" + request,
+      });
+    }
+    if (path === "auth/desktop/exchange" && method === "POST") {
+      checkOrigin(req);
+      const payload = desktopExchangeSchema.parse(await body(req));
+      const rows =
+        await db()`DELETE FROM desktop_logins WHERE request_hash=${hash(payload.request)} AND challenge=${desktopChallenge(payload.verifier)} AND user_id IS NOT NULL AND expires_at>now() RETURNING user_id`;
+      if (!rows[0])
+        throw new HttpError(
+          401,
+          "Desktop sign-in expired. Please sign in again.",
+        );
+      await createSession(rows[0].user_id);
+      return json({ ok: true });
+    }
     if (path === "auth/github" && method === "GET") {
       if (!process.env.GITHUB_CLIENT_ID)
         throw new HttpError(
@@ -41,6 +71,22 @@ async function handler(
       const state = token(),
         verifier = token(),
         jar = await cookies();
+      jar.delete("tg_desktop");
+      const desktopRequest = url.searchParams.get("desktop");
+      if (desktopRequest) {
+        if (!/^[A-Za-z0-9_-]{43}$/.test(desktopRequest))
+          throw new HttpError(400, "Invalid desktop sign-in.");
+        const requests =
+          await db()`SELECT request_hash FROM desktop_logins WHERE request_hash=${hash(desktopRequest)} AND user_id IS NULL AND expires_at>now()`;
+        if (!requests[0]) throw new HttpError(400, "Desktop sign-in expired.");
+        jar.set("tg_desktop", desktopRequest, {
+          httpOnly: true,
+          secure: origin().startsWith("https:"),
+          sameSite: "lax",
+          path: "/",
+          maxAge: 600,
+        });
+      }
       for (const [name, value] of [
         ["tg_state", state],
         ["tg_verifier", verifier],
@@ -68,9 +114,11 @@ async function handler(
     if (path === "auth/callback" && method === "GET") {
       const jar = await cookies(),
         state = jar.get("tg_state")?.value,
-        verifier = jar.get("tg_verifier")?.value;
+        verifier = jar.get("tg_verifier")?.value,
+        desktopRequest = jar.get("tg_desktop")?.value;
       jar.delete("tg_state");
       jar.delete("tg_verifier");
+      jar.delete("tg_desktop");
       if (
         !state ||
         state !== url.searchParams.get("state") ||
@@ -124,7 +172,19 @@ async function handler(
       // The OAuth token is intentionally never persisted.
       await createSession(users[0].id);
       await db()`DELETE FROM sessions WHERE expires_at<now()`;
-      return NextResponse.redirect(origin() + "/connect");
+      if (desktopRequest) {
+        const approved =
+          await db()`UPDATE desktop_logins SET user_id=${users[0].id} WHERE request_hash=${hash(desktopRequest)} AND user_id IS NULL AND expires_at>now() RETURNING request_hash`;
+        if (!approved[0])
+          throw new HttpError(
+            400,
+            "Desktop sign-in expired. Please try again from the app.",
+          );
+        return NextResponse.redirect(
+          "typegrid://signin?request=" + desktopRequest,
+        );
+      }
+      return NextResponse.redirect(origin() + "/app/connect");
     }
     if (
       path === "auth/local" &&
@@ -267,7 +327,7 @@ async function handler(
       return json({
         secret,
         code: code.slice(0, 4) + "-" + code.slice(4),
-        verificationUrl: origin() + "/connect#pair=" + code,
+        verificationUrl: origin() + "/app/connect#pair=" + code,
         expiresIn: 600,
       });
     }

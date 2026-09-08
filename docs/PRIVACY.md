@@ -58,3 +58,7 @@ Your profile history includes all synced daily keystroke and AI token totals.
 Only the signed-in owner can access hourly activity, active typing time, sessions,
 peak speed and AI time details. The public-appearance preview uses the public
 response shape even for the owner. A private profile remains inaccessible to others.
+
+## Desktop workspace and updates
+
+The desktop window displays TypeGrid's own workspace using WebKit. Its session cookie is kept in the app's cookie store. GitHub sign-in returns through a ten-minute, one-use PKCE handoff; tracking-device credentials cannot access account settings. No other browser tabs or apps are inspected. Update checks send a versioned user-agent to the official GitHub release endpoint and download application assets only; they send no activity totals or account credentials. Automatic updates can be turned off from the menu bar.

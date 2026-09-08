@@ -48,13 +48,13 @@ func blockingRequest(_ path: String, config: Config, object: [String: String]) t
     semaphore.wait()
     return try JSONSerialization.jsonObject(with: result!.get()) as? [String: Any] ?? [:]
 }
-func pair() throws {
+func pair(openPage: ((URL) -> Void)? = nil) throws {
     var config = loadConfig()
     if let server = ProcessInfo.processInfo.environment["TYPEGRID_SERVER"] { config.server = server }
     let start = try blockingRequest("/api/devices/start", config: config, object: [:])
     guard let secret = start["secret"] as? String, let code = start["code"] as? String, let url = start["verificationUrl"] as? String else { throw NSError(domain: "TypeGrid", code: 1) }
     print("Connect this Mac to the Grid.\nOpen \(url) and enter: \(code)\nThis code expires in 10 minutes. Only approve the code from this terminal.")
-    if let page = URL(string: url) { NSWorkspace.shared.open(page) }
+    if let page = URL(string: url) { if let openPage { openPage(page) } else { NSWorkspace.shared.open(page) } }
     for _ in 0..<120 {
         Thread.sleep(forTimeInterval: 5)
         let result = try blockingRequest("/api/devices/poll", config: config, object: ["secret": secret])
@@ -69,6 +69,17 @@ func pair() throws {
 }
 
 final class Agent: NSObject, NSApplicationDelegate {
+    var showOnLaunch = false
+    var pairingInProgress = false
+    private var desktopWindow: DesktopWindow?
+    var desktop: DesktopWindow {
+        if let desktopWindow { return desktopWindow }
+        let window = DesktopWindow(server: config.server)
+        window.didClose = { [weak self] in DispatchQueue.main.async { self?.updates.installIfReady() } }
+        desktopWindow = window
+        return window
+    }
+    let updates = AutomaticUpdates()
     var counter = Counter()
     var tap: CFMachPort?
     var status: NSStatusItem!
@@ -109,13 +120,30 @@ final class Agent: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle:"Disconnect Cursor",action:#selector(disconnectCursor),keyEquivalent:"")
         menu.addItem(withTitle:"Disconnect Codex",action:#selector(disconnectCodex),keyEquivalent:"")
         menu.addItem(withTitle:"Disconnect Claude Code",action:#selector(disconnectClaude),keyEquivalent:"")
-        menu.addItem(withTitle: "Open dashboard", action: #selector(dashboard), keyEquivalent: "")
+        menu.insertItem(withTitle: "Open TypeGrid", action: #selector(dashboard), keyEquivalent: "", at: 2)
+        menu.insertItem(withTitle: "Leaderboard", action: #selector(leaderboard), keyEquivalent: "", at: 3)
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Check for Updates…", action: #selector(checkUpdates), keyEquivalent: "")
+        menu.addItem(withTitle: "Automatic Updates", action: #selector(toggleUpdates), keyEquivalent: "")
+        menu.addItem(withTitle: "Updates enabled", action: nil, keyEquivalent: "")
         menu.addItem(withTitle: "Pause / resume", action: #selector(toggle), keyEquivalent: "")
         menu.addItem(withTitle: "Quit TypeGrid", action: #selector(quit), keyEquivalent: "")
         for item in menu.items { item.target = self }; status.menu = menu
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(appChanged), name: NSWorkspace.didActivateApplicationNotification, object: nil)
         appChanged()
-        installTap()
+        if config.token != nil { installTap() }
+        updates.canRestart = { [weak self] in self?.desktopWindow?.window?.isVisible != true && self?.pairingInProgress != true }
+        updates.prepareToRestart = { [weak self] in guard let self else { return }; try save(self.counter.buckets, to: countersURL) }
+        updates.didChange = { [weak self] in
+            guard let self else { return }
+            self.status.menu?.items.first(where: { $0.action == #selector(self.toggleUpdates) })?.state = self.updates.enabled ? .on : .off
+            if let items = self.status.menu?.items, let index = items.firstIndex(where: { $0.action == #selector(self.toggleUpdates) }), index + 1 < items.count { items[index + 1].title = self.updates.statusText }
+        }
+        updates.didChange?()
+        updates.start()
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(dashboard), name: NSNotification.Name("dev.typegrid.showWindow"), object: nil)
+        installApplicationMenu()
+        if showOnLaunch { desktop.show() }
         updateStatusDisplay()
         displayTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.updateStatusDisplay() }
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.tick() }
@@ -144,6 +172,8 @@ final class Agent: NSObject, NSApplicationDelegate {
         catch {let result=NSAlert();result.messageText="Connection needs attention";result.informativeText=error.localizedDescription;result.runModal()}
     }
     func application(_ application:NSApplication,open urls:[URL]) {
+        if urls.contains(where: { $0.scheme == "typegrid" && $0.host == "pair" }) { pairInApp() }
+        if urls.contains(where: { $0.scheme == "typegrid" && $0.host == "open" }) { desktop.show() }
         for url in urls where url.scheme == "typegrid" && url.host == "connect" {
             let provider=url.path.trimmingCharacters(in:CharacterSet(charactersIn:"/"))
             if ["codex","claude","cursor"].contains(provider){connectProvider(provider)}
@@ -175,7 +205,40 @@ final class Agent: NSObject, NSApplicationDelegate {
         CGEvent.tapEnable(tap: tap, enable: true)
     }
     @objc func appChanged() { isDev = config.classify && devApps.contains(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "") }
-    @objc func dashboard() { if let url = URL(string: config.server + "/dashboard") { NSWorkspace.shared.open(url) } }
+    @objc func dashboard() { desktop.show(path: "/app/dashboard") }
+    @objc func leaderboard() { desktop.show(path: "/app/leaderboard") }
+    @objc func checkUpdates() { updates.check(manual: true) }
+    @objc func toggleUpdates() { updates.enabled.toggle() }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { desktop.show(); return true }
+    func installApplicationMenu() {
+        let main = NSMenu()
+        let appItem = NSMenuItem(); let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "About TypeGrid", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: "Open TypeGrid", action: #selector(dashboard), keyEquivalent: "0").target = self
+        appMenu.addItem(withTitle: "Check for Updates…", action: #selector(checkUpdates), keyEquivalent: "").target = self
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Hide TypeGrid", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(withTitle: "Quit TypeGrid", action: #selector(quit), keyEquivalent: "q").target = self
+        appItem.submenu = appMenu; main.addItem(appItem)
+        let editItem = NSMenuItem(); let edit = NSMenu(title: "Edit")
+        for (title, selector, key) in [("Undo", "undo:", "z"), ("Cut", "cut:", "x"), ("Copy", "copy:", "c"), ("Paste", "paste:", "v"), ("Select All", "selectAll:", "a")] { edit.addItem(withTitle: title, action: Selector(selector), keyEquivalent: key) }
+        editItem.submenu = edit; main.addItem(editItem)
+        NSApp.mainMenu = main
+    }
+    func pairInApp() {
+        guard !pairingInProgress else { return }
+        pairingInProgress = true
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                try pair { url in DispatchQueue.main.async { [weak self] in self?.desktop.show(path: url.path + (url.fragment.map { "#" + $0 } ?? "")) } }
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }; self.pairingInProgress = false; self.config = loadConfig(); self.tick(); if self.tap == nil { self.installTap() }
+                }
+            } catch {
+                DispatchQueue.main.async { [weak self] in self?.pairingInProgress = false; let alert = NSAlert(); alert.messageText = "Couldn’t connect this Mac"; alert.informativeText = error.localizedDescription; alert.runModal() }
+            }
+        }
+    }
     @objc func toggle() { paused.toggle(); tick() }
     @objc func quit() { try? save(counter.buckets, to: countersURL); NSApplication.shared.terminate(nil) }
     // Redraw aggregate totals locally once per second; no additional sync or event inspection.
@@ -194,7 +257,7 @@ final class Agent: NSObject, NSApplicationDelegate {
         config = loadConfig()
         startCodingListeners()
         if config.deviceId != lastDevice { counter = Counter(); acknowledged = [:]; lastDevice = config.deviceId; codingListeners.values.forEach{$0.cancel()};codingListeners.removeAll();startCodingListeners() }
-        if tap == nil && CGPreflightListenEventAccess() { installTap() }
+        if config.token != nil && tap == nil && CGPreflightListenEventAccess() { installTap() }
         appChanged(); counter.prune()
         if !codingInFlight, let files = try? FileManager.default.contentsOfDirectory(at:root,includingPropertiesForKeys:nil) {
             for file in files where file.lastPathComponent.hasPrefix("coding-") && file.pathExtension == "json" {
@@ -252,6 +315,16 @@ func launch(_ args: [String]) -> Int32 {
     let p = Process(); p.executableURL = URL(fileURLWithPath: "/bin/launchctl"); p.arguments = args
     do { try p.run(); p.waitUntilExit(); return p.terminationStatus } catch { return 1 }
 }
+func installLoginAgentIfMissing() throws {
+    let plistURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents/dev.typegrid.agent.plist")
+    guard !FileManager.default.fileExists(atPath: plistURL.path) else { return }
+    let binary = Bundle.main.executableURL!.path
+    try FileManager.default.createDirectory(at: plistURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    let plist: [String: Any] = ["Label": "dev.typegrid.agent", "ProgramArguments": [binary, "run"], "RunAtLoad": true, "KeepAlive": false, "ProcessType": "Interactive"]
+    try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0).write(to: plistURL, options: .atomic)
+    // This process already owns the agent lock. The login service begins counting on the next login.
+    _ = launch(["bootstrap", "gui/\(getuid())", plistURL.path])
+}
 func start() throws {
     let binary = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL.resolvingSymlinksInPath().path
     let plistURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents/dev.typegrid.agent.plist")
@@ -265,10 +338,10 @@ func start() throws {
 }
 @main struct Main {
     static func main() {
-        let command = CommandLine.arguments.dropFirst().first ?? (Bundle.main.bundleIdentifier == "dev.typegrid.agent" ? "run" : "help")
+        let command = CommandLine.arguments.dropFirst().first ?? (Bundle.main.bundleIdentifier == "dev.typegrid.agent" ? "open" : "help")
         do {
             switch command {
-            case "version": print("0.1.8")
+            case "version": print(typegridVersion)
             case "is-paired": exit(loadConfig().token == nil ? 1 : 0)
             case "pair": try pair()
             case "connect", "disconnect":
@@ -280,17 +353,18 @@ func start() throws {
             case "track":
                 guard CommandLine.arguments.count >= 3 else { throw NSError(domain:"TypeGrid",code:1,userInfo:[NSLocalizedDescriptionKey:"Use typegrid track claude or typegrid track codex."]) }
                 try trackCoding(CommandLine.arguments[2],arguments:Array(CommandLine.arguments.dropFirst(3)))
-            case "run":
+            case "run", "open":
                 try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
                 let lock = open(root.appendingPathComponent("agent.lock").path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
-                guard lock >= 0, flock(lock, LOCK_EX | LOCK_NB) == 0 else { print("TypeGrid is already running."); return }
+                guard lock >= 0, flock(lock, LOCK_EX | LOCK_NB) == 0 else { if command == "open" { DistributedNotificationCenter.default().postNotificationName(NSNotification.Name("dev.typegrid.showWindow"), object: nil, deliverImmediately: true) }; print("TypeGrid is already running."); return }
                 defer { close(lock) }
-                let app = NSApplication.shared; app.setActivationPolicy(.accessory); let agent = Agent(); app.delegate = agent; withExtendedLifetime(agent) { app.run() }
+                if command == "open", Bundle.main.bundleIdentifier == "dev.typegrid.agent" { try installLoginAgentIfMissing() }
+                let app = NSApplication.shared; app.setActivationPolicy(.accessory); let agent = Agent(); agent.showOnLaunch = command == "open"; app.delegate = agent; withExtendedLifetime(agent) { app.run() }
             case "start", "restart": try start()
             case "stop": _ = launch(["bootout", "gui/\(getuid())/dev.typegrid.agent"]); print("TypeGrid stopped. Run typegrid start to resume.")
             case "classify": var c = loadConfig(); c.classify = CommandLine.arguments.last != "off"; try save(c, to: configURL); print("App classification \(c.classify ? "on" : "off").")
-            case "status": let c = loadConfig(); print("TypeGrid 0.1.8\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
-            default: print("TypeGrid 0.1.8 — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
+            case "status": let c = loadConfig(); print("TypeGrid \(typegridVersion)\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
+            default: print("TypeGrid \(typegridVersion) — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
             }
         } catch { fputs("TypeGrid: \(error.localizedDescription)\n", stderr); exit(1) }
     }

@@ -57,3 +57,10 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS input_monitoring boolean;
 
 -- Additive migration: old agents and existing activity keep working.
 ALTER TABLE buckets ADD COLUMN IF NOT EXISTS clicks integer NOT NULL DEFAULT 0 CHECK(clicks BETWEEN 0 AND 360000);
+
+-- Short-lived, single-use, PKCE-bound desktop sign-ins. Device credentials never grant account sessions.
+CREATE TABLE IF NOT EXISTS desktop_logins (
+ request_hash text PRIMARY KEY, challenge text NOT NULL,
+ user_id uuid REFERENCES users(id) ON DELETE CASCADE,
+ expires_at timestamptz NOT NULL
+);

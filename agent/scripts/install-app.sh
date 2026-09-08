@@ -1,7 +1,9 @@
 #!/bin/sh
 set -eu
 TYPEGRID_AGENT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-if [ -w /Applications ]; then
+if [ -n "${TYPEGRID_STAGE_APP:-}" ]; then
+  TYPEGRID_APP="$TYPEGRID_STAGE_APP"
+elif [ -w /Applications ]; then
   TYPEGRID_APP=/Applications/TypeGrid.app
 else
   TYPEGRID_APP="$HOME/Applications/TypeGrid.app"
@@ -15,8 +17,11 @@ if [ -d "$TYPEGRID_APP" ]; then
   fi
 fi
 swift build --package-path "$TYPEGRID_AGENT_DIR" -c release
-launchctl bootout "gui/$(id -u)/dev.typegrid.agent" >/dev/null 2>&1 || true
-mkdir -p "$TYPEGRID_APP/Contents/MacOS" "$TYPEGRID_APP/Contents/Resources" "$HOME/.local/bin"
+if [ -z "${TYPEGRID_STAGE_APP:-}" ]; then
+  launchctl bootout "gui/$(id -u)/dev.typegrid.agent" >/dev/null 2>&1 || true
+fi
+mkdir -p "$TYPEGRID_APP/Contents/MacOS" "$TYPEGRID_APP/Contents/Resources"
+if [ -z "${TYPEGRID_STAGE_APP:-}" ]; then mkdir -p "$HOME/.local/bin"; fi
 install -m 755 "$TYPEGRID_AGENT_DIR/.build/release/typegrid" "$TYPEGRID_APP/Contents/MacOS/TypeGrid"
 cat > "$TYPEGRID_APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -27,8 +32,8 @@ cat > "$TYPEGRID_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>TypeGrid</string>
 <key>CFBundleExecutable</key><string>TypeGrid</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.8</string>
-<key>CFBundleVersion</key><string>9</string>
+<key>CFBundleShortVersionString</key><string>0.2.0</string>
+<key>CFBundleVersion</key><string>20</string>
 <key>CFBundleIconFile</key><string>TypeGrid</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>LSUIElement</key><true/>
@@ -41,8 +46,13 @@ trap 'rm -rf "$TYPEGRID_ICON_TMP"' EXIT HUP INT TERM
 swiftc -parse-as-library "$TYPEGRID_AGENT_DIR/Sources/TypeGrid/BrandMark.swift" "$TYPEGRID_AGENT_DIR/scripts/make-icon.swift" -o "$TYPEGRID_ICON_TMP/make-icon"
 "$TYPEGRID_ICON_TMP/make-icon" "$TYPEGRID_ICON_TMP/TypeGrid.iconset"
 iconutil -c icns "$TYPEGRID_ICON_TMP/TypeGrid.iconset" -o "$TYPEGRID_APP/Contents/Resources/TypeGrid.icns"
+install -m 755 "$TYPEGRID_AGENT_DIR/scripts/apply-update.sh" "$TYPEGRID_APP/Contents/Resources/apply-update.sh"
 # Local ad-hoc signing is not Developer ID signing or notarization.
 codesign --force --deep --sign - --identifier dev.typegrid.agent "$TYPEGRID_APP"
+if [ -n "${TYPEGRID_STAGE_APP:-}" ]; then
+  printf "Prepared TypeGrid.app.\n"
+  exit 0
+fi
 if [ -f "$TYPEGRID_BIN" ] || [ -L "$TYPEGRID_BIN" ]; then unlink "$TYPEGRID_BIN"; fi
 ln -s "$TYPEGRID_APP/Contents/MacOS/TypeGrid" "$TYPEGRID_BIN"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister "$TYPEGRID_APP"

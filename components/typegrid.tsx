@@ -25,6 +25,8 @@ import {
 } from "@radix-ui/react-icons";
 import { achievements, summarize, type Bucket } from "@/lib/stats";
 const repo = "https://github.com/mijomajic/typegrid";
+const macDownload =
+  "https://github.com/mijomajic/typegrid/releases/download/v0.2.0/TypeGrid.dmg";
 const install = "curl -fsSL https://typegrid.dev/install.sh | sh";
 const fmt = (n: number) => new Intl.NumberFormat("en-US").format(n);
 type User = {
@@ -191,17 +193,36 @@ function Header() {
     <header className="header">
       <div className="container header-inner">
         <Logo />
-        <nav>
-          <Link href="/leaderboard">Leaderboard</Link>
-          <Link href="/integrations">Integrations</Link>
+        <nav aria-label="Website">
+          <Link href="/#download">Download for Mac</Link>
+          <Link href="/privacy">Privacy</Link>
           <a href={repo} target="_blank" rel="noreferrer">
-            Open source <ExternalLinkIcon />
+            GitHub <ExternalLinkIcon />
           </a>
         </nav>
-        <Link className="button small" href="/connect">
-          Join the Grid <ArrowRightIcon />
+        <Link className="button small" href="/app">
+          Open app <ArrowRightIcon />
         </Link>
       </div>
+    </header>
+  );
+}
+function AppHeader({ username }: { username?: string }) {
+  return (
+    <header className="workspace-header">
+      <Link href="/app" className="workspace-brand">
+        typegrid<span>Workspace</span>
+      </Link>
+      <nav aria-label="Workspace account">
+        {username ? (
+          <Link href="/app/settings">@{username}</Link>
+        ) : (
+          <a href="/" target="_blank" rel="noreferrer">
+            About TypeGrid
+          </a>
+        )}
+        <Link href="/privacy">Privacy</Link>
+      </nav>
     </header>
   );
 }
@@ -236,17 +257,17 @@ function Home() {
             </h1>
             <p>
               Every keystroke and click counts. See your rhythm in stats,
-              streaks, and a little friendly competition. All from your menu
-              bar.
+              streaks, and a little friendly competition. In your Mac app and
+              menu bar.
             </p>
-            <div className="hero-install">
+            <div className="hero-install" id="download">
               <span className="mono install-label">
                 INSTALL TYPEGRID · MACOS
               </span>
               <Command />
               <p className="install-note">
                 First,{" "}
-                <Link href="/connect">
+                <Link href="/app/connect">
                   sign in and choose your profile visibility
                 </Link>
                 . Then run the command above to install.
@@ -257,7 +278,7 @@ function Home() {
               </p>
             </div>
             <div className="hero-actions">
-              <Link href="/connect" className="button primary">
+              <Link href="/app/connect" className="button primary">
                 Get TypeGrid for Mac <ArrowRightIcon />
               </Link>
               <a className="button" href={repo}>
@@ -350,7 +371,7 @@ function Home() {
           <div>
             <Command />
             <p className="install-note">
-              <Link href="/connect">
+              <Link href="/app/connect">
                 Sign in and choose your profile visibility
               </Link>{" "}
               before installing.
@@ -358,7 +379,7 @@ function Home() {
             <p className="mono muted install-note">
               macOS 13+ · Apple Silicon & Intel · No Electron
             </p>
-            <Link href="/connect" className="text-link">
+            <Link href="/app/connect" className="text-link">
               Installation guide <ArrowRightIcon />
             </Link>
           </div>
@@ -490,7 +511,7 @@ export function TypeGrid({
     }
   };
   useEffect(() => {
-    if (page === "home") {
+    if (page === "home" || page === "privacy") {
       setLoading(false);
       return;
     }
@@ -501,6 +522,16 @@ export function TypeGrid({
     return () => clearInterval(id);
   }, [page, username, preview]);
   if (page === "home") return <Home />;
+  if (page === "privacy")
+    return (
+      <>
+        <Header />
+        <main className="container">
+          <Privacy />
+        </main>
+        <Footer />
+      </>
+    );
   const viewer = page === "u" ? data.viewer : data.user;
   const stats = summarize(data.buckets);
   const today = new Date().toISOString().slice(0, 10);
@@ -520,9 +551,33 @@ export function TypeGrid({
       return null;
     }
   }
+  if (!loading && !viewer && page !== "u" && page !== "connect") {
+    return (
+      <div className="workspace-gateway">
+        <AppHeader />
+        <main className="workspace-signin">
+          <span className="eyebrow">YOUR TYPEGRID WORKSPACE</span>
+          <h1>A place for your progress.</h1>
+          <p>
+            Sign in to see your stats, compare the leaderboard, and manage your
+            Macs.
+          </p>
+          {error && (
+            <div className="alert" role="alert">
+              {error}
+            </div>
+          )}
+          <SignIn />
+          <a href="/" className="text-link" target="_blank" rel="noreferrer">
+            Discover TypeGrid <ArrowRightIcon />
+          </a>
+        </main>
+      </div>
+    );
+  }
   return (
-    <>
-      <Header />
+    <div className="workspace-shell">
+      <AppHeader username={viewer?.username} />
       <div className="app-layout container">
         <aside className="sidebar">
           <div className="sidebar-label mono">YOUR WORKSPACE</div>
@@ -535,7 +590,7 @@ export function TypeGrid({
           ].map(([path, label, Icon]) => (
             <Link
               key={String(path)}
-              href={"/" + path}
+              href={"/app/" + path}
               className={page === path ? "active" : ""}
             >
               {typeof Icon !== "string" && <Icon />}
@@ -558,7 +613,7 @@ export function TypeGrid({
                 {online ? "Agent connected" : "Agent offline"}
               </div>
             )}
-            <Link href="/connect">
+            <Link href="/app/connect">
               <DesktopIcon /> Connect a machine <ArrowRightIcon />
             </Link>
             {viewer && (
@@ -602,7 +657,7 @@ export function TypeGrid({
                     <span className="mono">
                       WORKSPACE <span className="muted">/</span> OVERVIEW
                     </span>
-                    <Link href="/leaderboard" className="text-link">
+                    <Link href="/app/leaderboard" className="text-link">
                       View leaderboard <ArrowRightIcon />
                     </Link>
                   </div>
@@ -635,7 +690,7 @@ export function TypeGrid({
                             </strong>
                             <p>The native agent brings this page to life.</p>
                           </div>
-                          <Link href="/connect" className="button primary">
+                          <Link href="/app/connect" className="button primary">
                             Install agent <ArrowRightIcon />
                           </Link>
                         </div>
@@ -874,7 +929,7 @@ export function TypeGrid({
                                 ? "Back to my stats"
                                 : "Preview public appearance"}
                             </button>
-                            <Link className="button small" href="/settings">
+                            <Link className="button small" href="/app/settings">
                               Edit profile
                             </Link>
                           </div>
@@ -948,8 +1003,7 @@ export function TypeGrid({
           )}
         </main>
       </div>
-      <Footer />
-    </>
+    </div>
   );
 }
 function PageTitle({
@@ -991,6 +1045,10 @@ function Onboarding({
 }) {
   const [code, setCode] = useState("");
   const [manual, setManual] = useState(false);
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => {
+    setDesktop(navigator.userAgent.includes("TypeGridDesktop"));
+  }, []);
   const [isPublic, setPublic] = useState(data.user?.isPublic ?? true);
   const [busy, setBusy] = useState(false);
   const [approved, setApproved] = useState(false);
@@ -1050,7 +1108,7 @@ function Onboarding({
                 {data.user.isPublic
                   ? "Public · Your counts appear on the leaderboard."
                   : "Private · Your counts are visible only to you."}{" "}
-                <Link href="/settings">Change in Settings ↗</Link>
+                <Link href="/app/settings">Change in Settings ↗</Link>
               </p>
             ) : (
               <form
@@ -1114,22 +1172,39 @@ function Onboarding({
               </div>
             ) : (
               <>
-                <p>
-                  Paste this command into Terminal. It installs TypeGrid, opens
-                  this page with your pairing code filled in, and starts the
-                  agent after you confirm.
-                </p>
-                <Command />
-                <p className="muted">
-                  macOS 13+ · Builds locally using Apple Command Line Tools. If
-                  those tools are missing, the installer opens their setup.
-                </p>
-                <a
-                  className="text-link"
-                  href={repo + "/blob/main/docs/INSTALL.md"}
-                >
-                  Inspect the installer ↗
-                </a>
+                {desktop ? (
+                  <>
+                    <p>
+                      Connect this app to your account. Confirm the pairing code
+                      below to start counting on this Mac.
+                    </p>
+                    <a className="button primary" href="typegrid://pair">
+                      Connect this Mac <ArrowRightIcon />
+                    </a>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      Download TypeGrid, drag it into Applications, and open it.
+                      Your stats and leaderboard live in the app, with automatic
+                      updates built in.
+                    </p>
+                    <a className="button primary" href={macDownload}>
+                      <DownloadIcon /> Download for Mac
+                    </a>
+                    <p className="muted">
+                      macOS 13+ · Apple Silicon and Intel · Automatic updates
+                    </p>
+                    <details className="source-install">
+                      <summary>Install from source with Terminal</summary>
+                      <Command />
+                      <p className="muted">
+                        Builds locally using Apple Command Line Tools. The
+                        installer guides you through pairing.
+                      </p>
+                    </details>
+                  </>
+                )}
                 {code || manual ? (
                   <form
                     className="pair-form"
@@ -1199,7 +1274,7 @@ function Onboarding({
                   </p>
                 )}
                 {live && (
-                  <Link href="/dashboard" className="button primary">
+                  <Link href="/app/dashboard" className="button primary">
                     Open your dashboard <ArrowRightIcon />
                   </Link>
                 )}
@@ -1433,7 +1508,7 @@ function Settings({
         ) : (
           <p className="muted">No machines connected yet.</p>
         )}
-        <Link href="/connect" className="text-link">
+        <Link href="/app/connect" className="text-link">
           Connect a machine <ArrowRightIcon />
         </Link>
       </section>
@@ -1445,7 +1520,7 @@ function Settings({
           className="button"
           onClick={async () => {
             await action("auth/logout", {});
-            location.href = "/";
+            location.href = "/app";
           }}
         >
           <ExitIcon /> Sign out
@@ -1459,7 +1534,7 @@ function Settings({
               )
             ) {
               const r = await action("account", {}, "DELETE");
-              if (r) location.href = "/";
+              if (r) location.href = "/app";
             }
           }}
         >
