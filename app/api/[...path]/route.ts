@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { goalsUpdateSchema } from "@/lib/goals";
 import {
   desktopStartSchema,
   desktopExchangeSchema,
@@ -208,6 +209,7 @@ async function handler(
       ]);
       return json({
         user: publicUser(u),
+        goals: u.daily_goals,
         buckets,
         devices,
         github: u.github_stats,
@@ -380,6 +382,17 @@ async function handler(
         if (payload.codingProviders !== undefined)
           await tx`UPDATE devices SET coding_providers=${payload.codingProviders} WHERE id=${d.id}`;
       });
+      if (payload.goalSync) {
+        const day = new Date().toISOString().slice(0, 10);
+        const [users, totals] = await Promise.all([
+          db()`SELECT daily_goals FROM users WHERE id=${d.user_id}`,
+          db()`SELECT COALESCE(SUM(b.keystrokes),0) AS keystrokes,COALESCE(SUM(b.clicks),0) AS clicks FROM buckets b JOIN devices other ON other.id=b.device_id WHERE other.user_id=${d.user_id} AND other.id<>${d.id} AND b.hour>=${day + "T00:00:00Z"} AND b.hour<${day + "T00:00:00Z"}::timestamptz + interval '1 day'`,
+        ]);
+        return json({ ok: true, goalState: {
+          deviceId: d.id, goals: users[0].daily_goals,
+          otherDevices: { day, keystrokes: Number(totals[0].keystrokes), clicks: Number(totals[0].clicks) },
+        } });
+      }
       return json({ ok: true });
     }
     if (path === "coding/ingest" && method === "POST") {
@@ -396,6 +409,11 @@ async function handler(
     const u = await requireUser();
     if (method !== "GET") checkOrigin(req);
     await rate("user:" + u.id, 120, 60);
+    if (path === "goals" && method === "PATCH") {
+      const { goals } = goalsUpdateSchema.parse(await body(req));
+      await db()`UPDATE users SET daily_goals=${goals === null ? null : db().json(goals)} WHERE id=${u.id}`;
+      return json({ goals });
+    }
     if (path === "devices/approve" && method === "POST") {
       if (!u.onboarding_ready)
         throw new HttpError(
@@ -455,6 +473,7 @@ async function handler(
         JSON.stringify(
           {
             profile: publicUser(u),
+            goals: u.daily_goals,
             buckets,
             devices,
             coding,

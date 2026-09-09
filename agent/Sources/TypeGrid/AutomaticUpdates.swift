@@ -2,7 +2,7 @@ import AppKit
 import CryptoKit
 import GridCore
 
-let typegridVersion = "0.2.1"
+let typegridVersion = "0.2.2"
 
 final class AutomaticUpdates {
     private(set) var statusText = "Updates enabled"

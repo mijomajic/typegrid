@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { ProfileHistory, type CodingDay } from "./profile-history";
 import { Leaderboard } from "./leaderboard";
+import { DailyGoals } from "./daily-goals";
+import type { DailyGoals as GoalTargets } from "@/lib/goals";
 import { CodingStats, CodingConnections } from "./coding-stats";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -38,6 +40,7 @@ type User = {
   githubConnected: boolean;
 };
 type Data = {
+  goals?: GoalTargets | null;
   viewer?: User | null;
   isOwner?: boolean;
   detailed?: boolean;
@@ -494,15 +497,17 @@ export function TypeGrid({
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [preview, setPreview] = useState(false);
+  const goalRevision = useRef(0);
   const refresh = async () => {
+    const revision = goalRevision.current;
     try {
-      setData(
-        await api(
-          page === "u"
-            ? "profile/" + username + (preview ? "?view=public" : "")
-            : "me",
-        ),
+      const next = await api(
+        page === "u"
+          ? "profile/" + username + (preview ? "?view=public" : "")
+          : "me",
       );
+      // An older poll must not overwrite a goal the user just saved.
+      setData(current => revision === goalRevision.current ? next : { ...next, goals: current.goals });
       setError("");
     } catch (e) {
       if (page === "u") setData(empty);
@@ -696,6 +701,17 @@ export function TypeGrid({
                           </Link>
                         </div>
                       )}
+                      <DailyGoals
+                        key={data.user.id}
+                        goals={data.goals ?? null}
+                        keystrokes={daily.keys}
+                        clicks={daily.clicks}
+                        onSave={async (goals) => {
+                          const saved = await api("goals", { goals }, "PATCH");
+                          goalRevision.current += 1;
+                          setData(current => ({ ...current, goals: saved.goals }));
+                        }}
+                      />
                       <div className="metrics input-metrics mouse-metrics">
                         {[
                           [

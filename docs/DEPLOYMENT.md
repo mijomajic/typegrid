@@ -51,3 +51,19 @@ See [DESKTOP.md](DESKTOP.md) for the coordinated native/API rollout. Apply the a
 ## v0.2.1 source installation
 
 The public entry point is the source installer again, with the workspace in the browser and automatic source updates in the menu-bar agent. Publish v0.2.1 source assets before deploying the pinned installer. Existing 0.2.0 desktop installations migrate by running that installer once. See [DESKTOP.md](DESKTOP.md). No schema migration is introduced.
+
+## v0.2.2 daily goals
+
+Apply the additive `users.daily_goals` migration before deployment. It defaults to
+null and does not change profile visibility or existing counts. Browser goal
+updates require the signed-in user's session and matching Origin. `/api/me` and
+export include the owner's goals; public profiles and leaderboards do not.
+
+New agents request `goalSync` on the existing authenticated ingest heartbeat.
+The response contains the paired owner's targets and today's aggregate counts
+from other devices. The agent adds its live local counts, caches goals per pairing,
+and discards other-device totals at midnight UTC. Old clients remain compatible.
+During a rollout or rollback, a new agent retries without `goalSync` if an older
+server rejects the optional field, so counting and uploads continue. Publish the
+v0.2.2 source archive and checksum before promoting the website and installer.
+The existing automatic updater downloads and locally compiles this release.

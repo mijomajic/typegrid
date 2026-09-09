@@ -26,6 +26,7 @@ export const bucketSchema = z
   })
   .refine((b) => b.devKeystrokes <= b.keystrokes, "Dev count exceeds total");
 export const ingestSchema = z.strictObject({
+  goalSync: z.boolean().optional(),
   inputMonitoring: z.boolean().optional(),
   buckets: z.array(bucketSchema).max(48),
   codingProviders: z

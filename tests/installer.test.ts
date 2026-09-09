@@ -15,7 +15,7 @@ test("current installs skip compilation and failed pairing never starts the agen
     executable("open", "exit 0\n");
     executable("xcrun", "exit 99\n");
     executable("curl", "exit 99\n");
-    executable("typegrid", 'case "$1" in version) echo 0.2.1;; is-paired) exit 1;; pair) exit "${TEST_PAIR_STATUS:-0}";; start) echo STARTED;; esac\n');
+    executable("typegrid", 'case "$1" in version) echo 0.2.2;; is-paired) exit 1;; pair) exit "${TEST_PAIR_STATUS:-0}";; start) echo STARTED;; esac\n');
     const script = readFileSync(new URL("../public/install.sh", import.meta.url), "utf8")
       .replace('TYPEGRID_BINDIR="$HOME/.local/bin"', 'TYPEGRID_BINDIR="' + bin + '"');
     for (const status of ["0", "1"]) {

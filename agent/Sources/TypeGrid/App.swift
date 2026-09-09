@@ -8,6 +8,7 @@ import Network
 let root = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/TypeGrid", isDirectory: true)
 let configURL = root.appendingPathComponent("config.json")
 let countersURL = root.appendingPathComponent("counters.json")
+let goalsURL = root.appendingPathComponent("goals.json")
 struct Config: Codable {
     var server = "https://typegrid.dev"
     var token: String? = nil
@@ -48,6 +49,22 @@ func blockingRequest(_ path: String, config: Config, object: [String: String]) t
     semaphore.wait()
     return try JSONSerialization.jsonObject(with: result!.get()) as? [String: Any] ?? [:]
 }
+
+// A new agent must keep syncing counts during a server rollout or rollback.
+func requestActivity(config: Config, buckets: [Bucket], codingProviders: [String], inputMonitoring: Bool, completion: @escaping (Result<Data, Error>) -> Void) {
+    struct Upload: Encodable { let buckets: [Bucket]; let codingProviders: [String]; let inputMonitoring: Bool; var goalSync: Bool? }
+    let upload = Upload(buckets: buckets, codingProviders: codingProviders, inputMonitoring: inputMonitoring, goalSync: true)
+    do {
+        let data = try JSONEncoder().encode(upload)
+        request("/api/ingest", config: config, body: data) { result in
+            if case .failure(let error) = result, (error as NSError).code == 400 {
+                var legacy = upload; legacy.goalSync = nil
+                do { request("/api/ingest", config: config, body: try JSONEncoder().encode(legacy), completion: completion) }
+                catch { completion(.failure(error)) }
+            } else { completion(result) }
+        }
+    } catch { completion(.failure(error)) }
+}
 func pair(openPage: ((URL) -> Void)? = nil) throws {
     var config = loadConfig()
     if let server = ProcessInfo.processInfo.environment["TYPEGRID_SERVER"] { config.server = server }
@@ -87,30 +104,28 @@ final class Agent: NSObject, NSApplicationDelegate {
     var codingInFlight = false
     var acknowledged: [String: Bucket] = [:]
     var lastDevice: String?
+    var goalState: GoalSyncState?
+    let goalsItem = NSMenuItem(title: "Configure goals", action: nil, keyEquivalent: "")
+    var showKeystrokes: Bool { UserDefaults.standard.object(forKey: "showKeystrokes") as? Bool ?? true }
+    var showClicks: Bool { UserDefaults.standard.object(forKey: "showClicks") as? Bool ?? true }
+    var showGoals: Bool { UserDefaults.standard.object(forKey: "showGoals") as? Bool ?? true }
     let devApps: Set<String> = ["com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92", "com.apple.dt.Xcode", "com.apple.Terminal", "com.googlecode.iterm2", "dev.warp.Warp-Stable", "com.sublimetext.4", "com.jetbrains.intellij", "com.jetbrains.pycharm", "com.jetbrains.WebStorm", "com.openai.codex", "com.mitchellh.ghostty"]
     func applicationDidFinishLaunching(_ notification: Notification) {
         lastDevice = config.deviceId
+        if let data = try? Data(contentsOf: goalsURL), let cached = try? JSONDecoder().decode(GoalSyncState.self, from: data), cached.deviceId == config.deviceId { goalState = cached }
         startCodingListeners()
         if let data = try? Data(contentsOf: countersURL), let buckets = try? JSONDecoder().decode([String: Bucket].self, from: data) { counter = Counter(buckets: buckets) }
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         status.button?.imagePosition = .imageOnly
         status.button?.setAccessibilityLabel("TypeGrid")
         let menu = NSMenu()
-        menu.addItem(withTitle: "TypeGrid · starting", action: nil, keyEquivalent: "")
+        menu.addItem(withTitle: "Open TypeGrid", action: #selector(dashboard), keyEquivalent: "")
+        menu.addItem(withTitle: "Leaderboard", action: #selector(leaderboard), keyEquivalent: "")
+        menu.addItem(withTitle: "My profile", action: #selector(profile), keyEquivalent: "")
         menu.addItem(.separator())
-        menu.addItem(withTitle:"Connect Codex",action:#selector(connectCodex),keyEquivalent:"")
-        menu.addItem(withTitle:"Connect Claude Code",action:#selector(connectClaude),keyEquivalent:"")
-        menu.addItem(withTitle:"Connect Cursor",action:#selector(connectCursor),keyEquivalent:"")
-        menu.addItem(withTitle:"Disconnect Cursor",action:#selector(disconnectCursor),keyEquivalent:"")
-        menu.addItem(withTitle:"Disconnect Codex",action:#selector(disconnectCodex),keyEquivalent:"")
-        menu.addItem(withTitle:"Disconnect Claude Code",action:#selector(disconnectClaude),keyEquivalent:"")
-        menu.insertItem(withTitle: "Open TypeGrid", action: #selector(dashboard), keyEquivalent: "", at: 2)
-        menu.insertItem(withTitle: "Leaderboard", action: #selector(leaderboard), keyEquivalent: "", at: 3)
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "Check for Updates…", action: #selector(checkUpdates), keyEquivalent: "")
-        menu.addItem(withTitle: "Automatic Updates", action: #selector(toggleUpdates), keyEquivalent: "")
-        menu.addItem(withTitle: "Updates enabled", action: nil, keyEquivalent: "")
-        menu.addItem(withTitle: "Pause / resume", action: #selector(toggle), keyEquivalent: "")
+        menu.addItem(withTitle: "Keystrokes", action: #selector(toggleKeystrokes), keyEquivalent: "").toolTip = "Show or hide keystrokes in the menu bar. Counting continues."
+        menu.addItem(withTitle: "Clicks", action: #selector(toggleClicks), keyEquivalent: "").toolTip = "Show or hide clicks in the menu bar. Counting continues."
+        menu.addItem(goalsItem)
         menu.addItem(withTitle: "Quit TypeGrid", action: #selector(quit), keyEquivalent: "")
         for item in menu.items { item.target = self }; status.menu = menu
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(appChanged), name: NSWorkspace.didActivateApplicationNotification, object: nil)
@@ -118,12 +133,6 @@ final class Agent: NSObject, NSApplicationDelegate {
         if config.token != nil { installTap() }
         updates.canRestart = { [weak self] in self?.pairingInProgress != true }
         updates.prepareToRestart = { [weak self] in guard let self else { return }; self.counter.stopMouseActivity(); try save(self.counter.buckets, to: countersURL) }
-        updates.didChange = { [weak self] in
-            guard let self else { return }
-            self.status.menu?.items.first(where: { $0.action == #selector(self.toggleUpdates) })?.state = self.updates.enabled ? .on : .off
-            if let items = self.status.menu?.items, let index = items.firstIndex(where: { $0.action == #selector(self.toggleUpdates) }), index + 1 < items.count { items[index + 1].title = self.updates.statusText }
-        }
-        updates.didChange?()
         updates.start()
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(dashboard), name: NSNotification.Name("dev.typegrid.showWindow"), object: nil)
         installApplicationMenu()
@@ -131,6 +140,7 @@ final class Agent: NSObject, NSApplicationDelegate {
         updateStatusDisplay()
         displayTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.updateStatusDisplay() }
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.tick() }
+        tick()
     }
     func startCodingListeners() {
         let c=loadConfig()
@@ -192,6 +202,26 @@ final class Agent: NSObject, NSApplicationDelegate {
     @objc func appChanged() { isDev = config.classify && devApps.contains(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "") }
     @objc func dashboard() { openWorkspace("/app/dashboard") }
     @objc func leaderboard() { openWorkspace("/app/leaderboard") }
+    @objc func profile() { openWorkspace("/app/profile") }
+    @objc func configureGoals() { openWorkspace("/app/dashboard#goals") }
+    @objc func toggleKeystrokes() { UserDefaults.standard.set(!showKeystrokes, forKey: "showKeystrokes"); updateStatusDisplay() }
+    @objc func toggleClicks() { UserDefaults.standard.set(!showClicks, forKey: "showClicks"); updateStatusDisplay() }
+    @objc func toggleGoals() { UserDefaults.standard.set(!showGoals, forKey: "showGoals"); updateStatusDisplay() }
+    func updateGoalsMenu() {
+        let configured = goalState?.goals != nil
+        goalsItem.title = configured ? "Goals" : "Configure goals"
+        goalsItem.action = configured ? nil : #selector(configureGoals)
+        goalsItem.target = self
+        if configured {
+            if goalsItem.submenu == nil {
+                let menu = NSMenu()
+                menu.addItem(withTitle: "Show progress in menu bar", action: #selector(toggleGoals), keyEquivalent: "").target = self
+                menu.addItem(withTitle: "Edit daily goals…", action: #selector(configureGoals), keyEquivalent: "").target = self
+                goalsItem.submenu = menu
+            }
+            goalsItem.submenu?.items.first?.state = showGoals ? .on : .off
+        } else { goalsItem.submenu = nil }
+    }
     func openWorkspace(_ path: String) {
         if let url = URL(string: path, relativeTo: URL(string: config.server)) { NSWorkspace.shared.open(url) }
     }
@@ -237,21 +267,25 @@ final class Agent: NSObject, NSApplicationDelegate {
         let total = counter.buckets.values.filter { $0.hour.hasPrefix(today) }.reduce(0) { $0 + $1.keystrokes }
         let clicks = counter.buckets.values.filter { $0.hour.hasPrefix(today) }.reduce(0) { $0 + $1.clicks }
         let mouseSeconds = counter.buckets.values.filter { $0.hour.hasPrefix(today) }.reduce(0.0) { $0 + $1.mouseActiveSeconds }
-        status.menu?.items.first?.title = paused ? "Tracking paused" : tap == nil ? "Allow Input Monitoring" : "\(total.formatted()) keystrokes · \(clicks.formatted()) clicks · \(Int(mouseSeconds / 60))m active mouse today"
-        status.menu?.items.first(where: { $0.action == #selector(toggle) })?.title = paused ? "Resume tracking" : "Pause tracking"
+        let percent = goalState?.percent(localKeystrokes: total, localClicks: clicks, day: String(today))
+        status.menu?.items.first(where: { $0.action == #selector(toggleKeystrokes) })?.state = showKeystrokes ? .on : .off
+        status.menu?.items.first(where: { $0.action == #selector(toggleClicks) })?.state = showClicks ? .on : .off
+        updateGoalsMenu()
         status.button?.title = ""
         status.button?.image = MenuBarCounts.image(
-            keystrokes: total.formatted(), clicks: clicks.formatted(),
+            keystrokes: showKeystrokes ? total.formatted() : nil, clicks: showClicks ? clicks.formatted() : nil,
+            goalPercent: showGoals ? percent : nil,
             indicator: paused ? "Ⅱ" : tap == nil ? "!" : nil
         )
-        status.button?.setAccessibilityLabel("TypeGrid, \(total.formatted()) keystrokes · \(clicks.formatted()) clicks · \(Int(mouseSeconds / 60))m active mouse today, UTC" + (paused ? ", paused" : tap == nil ? ", Input Monitoring required" : ""))
+        let goalDescription = percent.map { ", \($0)% of daily goals reached across your Macs" } ?? ""
+        status.button?.setAccessibilityLabel("TypeGrid, \(total.formatted()) keystrokes · \(clicks.formatted()) clicks · \(Int(mouseSeconds / 60))m active mouse today, UTC" + goalDescription + (paused ? ", paused" : tap == nil ? ", Input Monitoring required" : ""))
         status.button?.appearsDisabled = paused || tap == nil
-        status.button?.toolTip = "TypeGrid — \(total.formatted()) keystrokes · \(clicks.formatted()) clicks · \(Int(mouseSeconds / 60))m active mouse today (UTC). \(statusText). We count. We don’t read."
+        status.button?.toolTip = "TypeGrid — \(total.formatted()) keystrokes · \(clicks.formatted()) clicks · \(Int(mouseSeconds / 60))m active mouse today (UTC)\(goalDescription). \(statusText). We count. We don’t read."
     }
     func tick() {
         config = loadConfig()
         startCodingListeners()
-        if config.deviceId != lastDevice { counter = Counter(); acknowledged = [:]; lastDevice = config.deviceId; codingListeners.values.forEach{$0.cancel()};codingListeners.removeAll();startCodingListeners() }
+        if config.deviceId != lastDevice { goalState = nil; try? FileManager.default.removeItem(at: goalsURL); counter = Counter(); acknowledged = [:]; lastDevice = config.deviceId; codingListeners.values.forEach{$0.cancel()};codingListeners.removeAll();startCodingListeners() }
         if config.token != nil && tap == nil && CGPreflightListenEventAccess() { installTap() }
         if paused || tap == nil || !CGPreflightListenEventAccess() { counter.stopMouseActivity() } else { counter.advanceMouseActivity() }
         appChanged(); counter.prune()
@@ -289,18 +323,23 @@ final class Agent: NSObject, NSApplicationDelegate {
         guard config.token != nil, !inFlight else { return }
         let pending = counter.buckets.values.filter { acknowledged[$0.hour] != $0 }.sorted { $0.hour < $1.hour }.prefix(48)
         let batch = Array(pending)
-        struct ActivityUpload: Encodable { let buckets: [Bucket]; let codingProviders: [String]; let inputMonitoring: Bool }
         let providers = (config.codingProviders ?? []).filter { $0 == "cursor" || codingListeners[$0] != nil }
-        guard let data = try? JSONEncoder().encode(ActivityUpload(buckets: batch, codingProviders: providers, inputMonitoring: tap != nil && CGPreflightListenEventAccess())) else { return }
         inFlight = true
         let sendingDevice = config.deviceId
-        request("/api/ingest", config: config, body: data) { [weak self] result in
+        requestActivity(config: config, buckets: batch, codingProviders: providers, inputMonitoring: tap != nil && CGPreflightListenEventAccess()) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }; self.inFlight = false
                 switch result {
-                case .success:
-                    if self.config.deviceId == sendingDevice { for b in batch { self.acknowledged[b.hour] = b } }
+                case .success(let data):
+                    guard self.config.deviceId == sendingDevice, loadConfig().deviceId == sendingDevice else { return }
+                    for b in batch { self.acknowledged[b.hour] = b }
+                    struct Response: Decodable { let goalState: GoalSyncState? }
+                    if let state = try? JSONDecoder().decode(Response.self, from: data).goalState, state.deviceId == sendingDevice, state != self.goalState {
+                        self.goalState = state
+                        try? save(state, to: goalsURL)
+                    }
                     self.statusText = "Connected to the Grid"
+                    self.updateStatusDisplay()
                 case .failure: self.statusText = "Offline — aggregates queued locally"
                 }
             }

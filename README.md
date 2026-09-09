@@ -18,6 +18,7 @@ TypeGrid is a free, open-source stats network for developers and people who live
 
 ## What you get
 
+- Private daily goals with Easy, Medium and Hard presets, custom targets, and a menu-bar progress ring
 - Live keystroke and mouse/trackpad click counts, estimated words, active typing time, sessions and peak speed
 - Hourly patterns, daily records, streaks, XP, levels and achievements
 - Your own profile preview, with all synced history, date filters and daily/monthly totals

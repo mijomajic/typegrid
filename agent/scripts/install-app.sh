@@ -36,8 +36,8 @@ cat > "$TYPEGRID_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>TypeGrid</string>
 <key>CFBundleExecutable</key><string>TypeGrid</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.2.1</string>
-<key>CFBundleVersion</key><string>21</string>
+<key>CFBundleShortVersionString</key><string>0.2.2</string>
+<key>CFBundleVersion</key><string>22</string>
 <key>CFBundleIconFile</key><string>TypeGrid</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>LSUIElement</key><true/>

@@ -63,3 +63,11 @@ response shape even for the owner. A private profile remains inaccessible to oth
 ## Desktop workspace and updates
 
 The desktop window displays TypeGrid's own workspace using WebKit. Its session cookie is kept in the app's cookie store. GitHub sign-in returns through a ten-minute, one-use PKCE handoff; tracking-device credentials cannot access account settings. No other browser tabs or apps are inspected. Update checks send a versioned user-agent to the official GitHub release endpoint and download application assets only; they send no activity totals or account credentials. Automatic updates can be turned off from the menu bar.
+
+Daily targets are optional and owner-only. Only the signed-in account can change
+them. Its paired devices receive the targets and today's aggregate totals from
+its other devices through their authenticated sync, so the menu-bar ring matches
+account-wide progress. The Mac caches this state per pairing for offline display;
+re-pairing clears it. Goals never appear on public profiles or leaderboards and
+are included in the owner's export. Hiding a menu-bar counter only changes its
+display; event counting continues.

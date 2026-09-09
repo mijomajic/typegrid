@@ -65,3 +65,18 @@ Delete `~/Library/Application Support/TypeGrid` in Finder if you also want to re
 ## Platform status
 
 macOS 13+ source build: supported. Apple Silicon build verified during initial development. Intel source compatibility is targeted; hardware verification is still needed. Linux and Windows: not shipped. The installer fails clearly on other systems.
+
+### Daily goals and the menu bar
+
+Choose Easy (5,000 keystrokes / 750 clicks), Medium (10,000 / 1,500), Hard
+(20,000 / 3,000), or custom daily targets on your dashboard. Today's activity
+already counts. Each target fills half the progress ring; both must be reached
+for 100%. Goals reset at midnight UTC and are private even on a public profile.
+
+The menu contains Open TypeGrid, Leaderboard, My profile, a divider, Keystrokes,
+Clicks, Goals, and Quit TypeGrid. Before setup, Goals reads Configure goals and
+opens the dashboard's goal editor. Keystrokes and Clicks toggle their menu-bar
+displays; Goals offers a progress visibility toggle and Edit daily goals. These
+preferences survive restarts and do not pause counting. If every display is
+hidden, a TypeGrid icon keeps the menu accessible. Turn off goals from Edit goals
+on the dashboard. Automatic updates continue using your existing preference.

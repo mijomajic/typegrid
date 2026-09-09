@@ -11,7 +11,7 @@ const periods = [
 ];
 export function Leaderboard() {
   const [metric, setMetric] = useState("keys");
-  const [period, setPeriod] = useState("week");
+  const [period, setPeriod] = useState("day");
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
