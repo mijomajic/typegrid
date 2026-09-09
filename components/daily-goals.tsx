@@ -92,16 +92,20 @@ export function DailyGoals({
           }
         >
           <svg viewBox="0 0 64 64" aria-hidden="true">
-            <circle className="goal-ring-track" cx="32" cy="32" r="27" />
-            <circle
-              className="goal-ring-value"
-              cx="32"
-              cy="32"
-              r="27"
-              pathLength="100"
-              strokeDasharray="100"
-              strokeDashoffset={100 - (progress?.percent ?? 0)}
-            />
+            {Array.from({ length: 40 }, (_, i) => (
+              <circle
+                key={i}
+                className={
+                  "goal-ring-dot" +
+                  (i < Math.floor(((progress?.percent ?? 0) * 40) / 100)
+                    ? " lit"
+                    : "")
+                }
+                cx={32 + 27 * Math.cos((i * Math.PI * 2) / 40)}
+                cy={32 + 27 * Math.sin((i * Math.PI * 2) / 40)}
+                r="1.4"
+              />
+            ))}
           </svg>
           <span>
             {progress ? (
@@ -229,9 +233,15 @@ export function DailyGoals({
                     {selected ? <CheckIcon /> : <ArrowRightIcon />}
                   </span>
                   <span className="goal-preset-numbers">
-                    {fmt(preset.keystrokes)} <small>keys</small>
+                    <span className="goal-preset-count">
+                      {fmt(preset.keystrokes)}
+                    </span>{" "}
+                    <small>keys</small>
                     <span> · </span>
-                    {fmt(preset.clicks)} <small>clicks</small>
+                    <span className="goal-preset-count">
+                      {fmt(preset.clicks)}
+                    </span>{" "}
+                    <small>clicks</small>
                   </span>
                   <span className="goal-preset-description">
                     {preset.description}
