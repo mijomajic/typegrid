@@ -5,6 +5,7 @@ import { Leaderboard } from "./leaderboard";
 import { DailyGoals } from "./daily-goals";
 import type { DailyGoals as GoalTargets } from "@/lib/goals";
 import { CodingStats, CodingConnections } from "./coding-stats";
+import { StreakValue } from "./streak-value";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowRightIcon,
@@ -747,7 +748,11 @@ export function TypeGrid({
                         ].map(([label, value, sub]) => (
                           <div key={label}>
                             <span>{label}</span>
-                            <strong>{value}</strong>
+                            {label === "Current streak" ? (
+                              <StreakValue days={stats.streak} />
+                            ) : (
+                              <strong>{value}</strong>
+                            )}
                             <small>{sub}</small>
                           </div>
                         ))}
@@ -984,7 +989,7 @@ export function TypeGrid({
                         </div>
                         <div>
                           <span>Current streak</span>
-                          <strong>{stats.streak} days</strong>
+                          <StreakValue days={stats.streak} />
                         </div>
                         <div>
                           <span>Estimated words</span>

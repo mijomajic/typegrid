@@ -2572,6 +2572,16 @@ p {
 .metrics > div:first-child strong {
   color: var(--accent);
 }
+.metrics .streak-value {
+  display: flex;
+  align-items: center;
+  gap: 0.2em;
+}
+.streak-flame {
+  width: 0.58em;
+  height: 0.8em;
+  color: var(--accent);
+}
 .metrics small {
   color: var(--muted);
   font-size: 11px;
