@@ -88,12 +88,13 @@ func pair(openPage: ((URL) -> Void)? = nil) throws {
 final class Agent: NSObject, NSApplicationDelegate {
     var showOnLaunch = false
     var pairingInProgress = false
-    let updates = AutomaticUpdates()
+    let updates = UpdateController()
     var counter = Counter()
     var tap: CFMachPort?
     var status: NSStatusItem!
     var timer: Timer?
     var displayTimer: Timer?
+    var terminationSignal: DispatchSourceSignal?
     var codingListeners:[String:NWListener] = [:]
     var paused = false
     var inFlight = false
@@ -126,14 +127,23 @@ final class Agent: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Keystrokes", action: #selector(toggleKeystrokes), keyEquivalent: "").toolTip = "Show or hide keystrokes in the menu bar. Counting continues."
         menu.addItem(withTitle: "Clicks", action: #selector(toggleClicks), keyEquivalent: "").toolTip = "Show or hide clicks in the menu bar. Counting continues."
         menu.addItem(goalsItem)
+        let updateMenu = NSMenu(title: "Updates")
+        updates.addMenuItems(to: updateMenu)
+        updateMenu.addItem(.separator())
+        updateMenu.addItem(withTitle: "Restart TypeGrid", action: #selector(restartFromMenu), keyEquivalent: "").target = self
+        updateMenu.addItem(withTitle: "Input Monitoring settings…", action: #selector(inputSettings), keyEquivalent: "").target = self
+        let updateItem = NSMenuItem(title: "Updates", action: nil, keyEquivalent: "")
+        updateItem.submenu = updateMenu; menu.addItem(updateItem)
         menu.addItem(withTitle: "Quit TypeGrid", action: #selector(quit), keyEquivalent: "")
         for item in menu.items { item.target = self }; status.menu = menu
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(appChanged), name: NSWorkspace.didActivateApplicationNotification, object: nil)
         appChanged()
         if config.token != nil { installTap() }
-        updates.canRestart = { [weak self] in self?.pairingInProgress != true }
-        updates.prepareToRestart = { [weak self] in guard let self else { return }; self.counter.stopMouseActivity(); try save(self.counter.buckets, to: countersURL) }
-        updates.start()
+        updates.canInstall = { [weak self] in self?.pairingInProgress != true }
+        signal(SIGTERM, SIG_IGN)
+        terminationSignal = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        terminationSignal?.setEventHandler { [weak self] in self?.quit() }
+        terminationSignal?.resume()
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(dashboard), name: NSNotification.Name("dev.typegrid.showWindow"), object: nil)
         installApplicationMenu()
         if showOnLaunch { dashboard() }
@@ -225,8 +235,8 @@ final class Agent: NSObject, NSApplicationDelegate {
     func openWorkspace(_ path: String) {
         if let url = URL(string: path, relativeTo: URL(string: config.server)) { NSWorkspace.shared.open(url) }
     }
-    @objc func checkUpdates() { updates.check(manual: true) }
-    @objc func toggleUpdates() { updates.enabled.toggle() }
+    @objc func checkUpdates() { updates.checkManually() }
+    @objc func toggleUpdates() { updates.toggleChecks() }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { dashboard(); return true }
     func installApplicationMenu() {
         let main = NSMenu()
@@ -257,8 +267,24 @@ final class Agent: NSObject, NSApplicationDelegate {
             }
         }
     }
+    @objc func inputSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") { NSWorkspace.shared.open(url) }
+    }
+    @objc func restartFromMenu() {
+        do {
+            let binary = try installedAppURL().appendingPathComponent("Contents/MacOS/TypeGrid")
+            let job = "dev.typegrid.restart.\(UUID().uuidString)"
+            // A separate launch job survives termination of this app's job.
+            guard launch(["submit", "-l", job, "--", binary.path, "restart", "--job", job]) == 0 else {
+                throw codingSetupError("Could not restart. Run typegrid restart in Terminal.")
+            }
+        } catch { let alert = NSAlert(); alert.messageText = "Restart needs attention"; alert.informativeText = error.localizedDescription; alert.runModal() }
+    }
     @objc func toggle() { counter.stopMouseActivity(); paused.toggle(); tick() }
     @objc func quit() { counter.stopMouseActivity(); try? save(counter.buckets, to: countersURL); NSApplication.shared.terminate(nil) }
+    func applicationWillTerminate(_ notification: Notification) {
+        counter.stopMouseActivity(); try? save(counter.buckets, to: countersURL)
+    }
     // Redraw aggregate totals locally once per second; no additional sync or event inspection.
     func updateStatusDisplay() {
         if paused || tap == nil || !CGPreflightListenEventAccess() { counter.stopMouseActivity() }
@@ -360,16 +386,41 @@ func installLoginAgentIfMissing() throws {
     // This process already owns the agent lock. The login service begins counting on the next login.
     _ = launch(["bootstrap", "gui/\(getuid())", plistURL.path])
 }
+func agentIsRunning() -> Bool {
+    let descriptor = open(root.appendingPathComponent("agent.lock").path, O_RDWR)
+    guard descriptor >= 0 else { return false }
+    defer { close(descriptor) }
+    return flock(descriptor, LOCK_EX | LOCK_NB) != 0
+}
+func stop() throws {
+    // Also stop Finder-launched instances; no process-name matching or broad pkill.
+    for app in NSRunningApplication.runningApplications(withBundleIdentifier: "dev.typegrid.agent") where app.processIdentifier != getpid() {
+        app.terminate()
+    }
+    _ = launch(["bootout", "gui/\(getuid())/dev.typegrid.agent"])
+    for _ in 0..<100 {
+        if !agentIsRunning() { return }
+        Thread.sleep(forTimeInterval: 0.1)
+    }
+    throw codingSetupError("TypeGrid could not stop safely. Quit it from the menu bar and try again.")
+}
 func start() throws {
-    let binary = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL.resolvingSymlinksInPath().path
+    let binary = (Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])).standardizedFileURL.resolvingSymlinksInPath().path
     let plistURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents/dev.typegrid.agent.plist")
     try FileManager.default.createDirectory(at: plistURL.deletingLastPathComponent(), withIntermediateDirectories: true)
     let plist: [String: Any] = ["Label": "dev.typegrid.agent", "ProgramArguments": [binary, "run"], "RunAtLoad": true, "KeepAlive": false, "ProcessType": "Interactive"]
     let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
     try data.write(to: plistURL, options: .atomic)
-    _ = launch(["bootout", "gui/\(getuid())/dev.typegrid.agent"])
-    guard launch(["bootstrap", "gui/\(getuid())", plistURL.path]) == 0 else { throw codingSetupError("Could not start TypeGrid. Rerun the installer to retry startup.") }
-    print("TypeGrid started. It will launch at sign-in. Allow Input Monitoring in macOS System Settings if prompted. TypeGrid retries automatically; if macOS requires a relaunch, rerun the installer.")
+    try stop()
+    guard launch(["bootstrap", "gui/\(getuid())", plistURL.path]) == 0 else { throw codingSetupError("Could not start. Run typegrid run to diagnose.") }
+    for _ in 0..<100 {
+        if agentIsRunning() {
+            print("TypeGrid started and will launch at sign-in. If needed, allow Input Monitoring in System Settings. Use Restart TypeGrid in its menu if macOS requests a relaunch.")
+            return
+        }
+        Thread.sleep(forTimeInterval: 0.1)
+    }
+    throw codingSetupError("TypeGrid did not finish starting. Run typegrid run to diagnose.")
 }
 @main struct Main {
     static func main() {
@@ -377,6 +428,10 @@ func start() throws {
         do {
             switch command {
             case "version": print(typegridVersion)
+            case "update":
+                let options = Array(CommandLine.arguments.dropFirst(2))
+                guard options.isEmpty || options == ["--check"] else { throw codingSetupError("Use typegrid update or typegrid update --check.") }
+                try updateFromTerminal(checkOnly: options == ["--check"])
             case "is-paired": exit(loadConfig().token == nil ? 1 : 0)
             case "pair": try pair()
             case "connect", "disconnect":
@@ -395,11 +450,15 @@ func start() throws {
                 defer { close(lock) }
                 if command == "open", Bundle.main.bundleIdentifier == "dev.typegrid.agent" { try installLoginAgentIfMissing() }
                 let app = NSApplication.shared; app.setActivationPolicy(.accessory); let agent = Agent(); agent.showOnLaunch = command == "open"; app.delegate = agent; withExtendedLifetime(agent) { app.run() }
-            case "start", "restart": try start()
-            case "stop": _ = launch(["bootout", "gui/\(getuid())/dev.typegrid.agent"]); print("TypeGrid stopped. Run typegrid start to resume.")
+            case "start", "restart":
+                defer {
+                    if CommandLine.arguments.count == 4, CommandLine.arguments[2] == "--job", CommandLine.arguments[3].hasPrefix("dev.typegrid.restart.") { _ = launch(["remove", CommandLine.arguments[3]]) }
+                }
+                try start()
+            case "stop": try stop(); print("TypeGrid stopped. Run typegrid start to resume.")
             case "classify": var c = loadConfig(); c.classify = CommandLine.arguments.last != "off"; try save(c, to: configURL); print("App classification \(c.classify ? "on" : "off").")
             case "status": let c = loadConfig(); print("TypeGrid \(typegridVersion)\nServer: \(c.server)\nPaired: \(c.token != nil)\nInput Monitoring: \(CGPreflightListenEventAccess())\nApp classification: \(c.classify)")
-            default: print("TypeGrid \(typegridVersion) — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart after granting access\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
+            default: print("TypeGrid \(typegridVersion) — We count. We don’t read.\n\ntypegrid pair       Connect this Mac\ntypegrid start      Start at login and now\ntypegrid stop       Stop tracking\ntypegrid restart    Restart TypeGrid\ntypegrid update     Update and relaunch\ntypegrid update --check  Check for a newer release\ntypegrid status     Check permissions and pairing\ntypegrid classify off  Disable dev-app classification\n\nDocs: https://typegrid.dev/connect")
             }
         } catch { fputs("TypeGrid: \(error.localizedDescription)\n", stderr); exit(1) }
     }

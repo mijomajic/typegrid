@@ -1292,8 +1292,8 @@ function Onboarding({
                 {!live && (
                   <p className="muted" role="status">
                     Waiting for permission and the agent’s first sync. If macOS
-                    asks you to quit and reopen TypeGrid, rerun the same install
-                    command.
+                    asks you to quit and reopen TypeGrid, choose Restart TypeGrid
+                    from its Updates menu, or reopen TypeGrid from Applications.
                   </p>
                 )}
                 {live && (

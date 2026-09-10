@@ -162,3 +162,7 @@ See [Desktop app and automatic updates](docs/DESKTOP.md) for building the univer
 ### Active mouse time
 
 Mouse movement, dragging, clicks, and scrolling start or extend activity. The timer stops exactly three seconds after the last event, including that idle grace period. Pause stops it immediately. Only accumulated seconds are saved, split at UTC hour boundaries; no positions, scroll distances, button identities, or individual event times are persisted. Mouse and typing time may overlap and stay separate. Mouse timing details are owner-only, like active typing time. Apply the additive schema migration before deploying this API and distributing the updated agent.
+
+### Updates
+
+After installing v0.2.3, use `typegrid update` or **Updates → Check for updates…** in the toolbar menu. The app verifies the release, saves counts, updates in place, and restarts while retaining pairing, daily goals, and menu preferences. `typegrid update --check` checks without installing. Background checks are available; automatic installation applies only to signed releases. Current source builds may still require Input Monitoring consent because stable Developer ID distribution signing is not configured. [Update details](docs/INSTALL.md).

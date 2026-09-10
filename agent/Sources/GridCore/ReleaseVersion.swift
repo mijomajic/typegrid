@@ -1,13 +1,14 @@
 import Foundation
 
 public struct ReleaseVersion: Comparable, Equatable, CustomStringConvertible {
+    public static let current = ReleaseVersion("0.2.3")!
     public let major: Int
     public let minor: Int
     public let patch: Int
     public init?(_ value: String) {
         let raw = value.hasPrefix("v") ? String(value.dropFirst()) : value
         let parts = raw.split(separator: ".", omittingEmptySubsequences: false)
-        guard parts.count == 3, parts.allSatisfy({ !$0.isEmpty && $0.allSatisfy({ $0.isASCII && $0.isNumber }) && ($0 == "0" || !$0.hasPrefix("0")) }),
+        guard parts.count == 3, parts.allSatisfy({ !$0.isEmpty && $0.count <= 8 && $0.allSatisfy({ $0.isASCII && $0.isNumber }) && ($0 == "0" || !$0.hasPrefix("0")) }),
               let major = Int(parts[0]), let minor = Int(parts[1]), let patch = Int(parts[2]) else { return nil }
         self.major = major; self.minor = minor; self.patch = patch
     }

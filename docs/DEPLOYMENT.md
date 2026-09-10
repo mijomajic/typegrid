@@ -67,3 +67,29 @@ During a rollout or rollback, a new agent retries without `goalSync` if an older
 server rejects the optional field, so counting and uploads continue. Publish the
 v0.2.2 source archive and checksum before promoting the website and installer.
 The existing automatic updater downloads and locally compiles this release.
+
+## v0.2.3 built-in updater
+
+Run all repository checks, then `sh scripts/package-release.sh /tmp/typegrid-v0.2.3-release`. Publish the reviewed source as tag `v0.2.3` with **all three** generated assets: `typegrid-source.tar.gz`, `typegrid-update.sh`, and `SHA256SUMS`. Only then deploy the website with its v0.2.3 installer. The bootstrap pins the version and verifies the update helper; the helper verifies the selected archive. Do not mark a release latest until all assets are uploaded. The archive uses a source allowlist and includes `agent/VERSION`.
+
+The application checks the public GitHub `/releases/latest` API. Only a newer stable `vMAJOR.MINOR.PATCH` release with the expected assets under this repository is eligible. Drafts, prereleases, missing checksums, arbitrary download hosts, and downgrades are rejected. Keep version values in `agent/VERSION`, `ReleaseVersion.swift`, `public/install.sh`, `package.json`, and the lockfile aligned; the test suite verifies this. Increment `agent/BUILD` for each release so the macOS bundle build number also increases.
+
+v0.2.0 and older need one final bootstrap install because they have no update command. Newer clients use the menu or `typegrid update`. Existing pairing, aggregates, privacy choices, and integrations stay in place. This change adds no database migration; apply any other pending feature migrations before releasing the combined checkout.
+
+### Signed production releases
+
+An Apple Development certificate is not a Developer ID distribution certificate. Enroll in the Apple Developer Program, create a **Developer ID Application** identity, and configure a `notarytool` Keychain profile. Keep credentials in Keychain or protected CI secrets, never in this repository.
+
+```sh
+TYPEGRID_SIGN_ID='Developer ID Application: Your Organization (TEAMID)' \
+TYPEGRID_NOTARY_PROFILE='typegrid-notary' \
+sh scripts/package-signed-release.sh /tmp/typegrid-signed-release
+```
+
+This builds a universal arm64/x86_64 app, signs with Hardened Runtime, submits it to Apple, staples and verifies notarization, and adds `TypeGrid-macos.zip` to the checksum manifest. Upload the ZIP along with the three source assets. Set `RELEASE_KIND=signed` in `public/install.sh` for that published version so first installations use the notarized app without requiring Swift or Command Line Tools. Existing updaters prefer the signed ZIP automatically.
+
+The updater verifies Developer ID signing, the bundle identifier, Gatekeeper acceptance, the expected version, and (when already signed) the installed app's team before executing the new app or its helper. Never re-sign a downloaded signed app locally. Use the same bundle ID, app location, and developer team for future releases. A transition from ad-hoc signing may require one final consent; test the full permission-retention flow on macOS 13+ with two real signed versions before claiming hardware-wide verification.
+
+The first signed release must have a newer version than the last source release so existing clients receive the migration. The automatic-install preference is opt-in and only applies to signed releases. Source updates remain manual while there is no Developer ID distribution identity. Checksums protect against corruption, not a compromised release account; signed updates additionally enforce Apple's trust and installed team continuity.
+
+The v0.2.1/v0.2.2 `TYPEGRID_STAGE_APP` contract remains supported so existing automatic updaters can install v0.2.3. The release preserves the deployed daily-goals and streak UI; no schema change is required.

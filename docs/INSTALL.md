@@ -16,13 +16,11 @@ curl -fsSL https://typegrid.dev/install.sh | sh
 
 To install without pairing: `curl -fsSL https://typegrid.dev/install.sh | TYPEGRID_NO_PAIR=1 sh`.
 
-## Automatic updates and permissions
+## Updates and permissions
 
-After this source installation, update checks run fifteen seconds after launch (subject to the six-hour check interval) and every six hours. **Check for Updates…** checks immediately; **Automatic Updates** disables or enables background updates. Updates verify the release checksum and archive paths/types, build a fresh app locally with Apple Command Line Tools, verify its bundle/version/signature, save counters, and restart. Failed downloads or builds leave the running app intact. Existing pairing, login setup, and profile visibility are preserved.
+Use **Updates → Check for updates…** in the toolbar menu, or run `typegrid update` in Terminal. `typegrid update --check` checks without installing. The updater verifies and builds the release, preserves pairing and goals, saves counts, and relaunches. See the v0.2.3 update details below.
 
-Input Monitoring is requested only when macOS reports it is missing. The agent retries access automatically after approval. If macOS explicitly requires a relaunch, rerun the installer; an already-current install skips compilation. Changed ad-hoc-signed binaries can require permission again: a source installer cannot guarantee one-time approval. Stable certificate signing is required for permission continuity. No TCC database edits, permission resets, or global Gatekeeper changes are made.
-
-The 0.2.0 downloaded desktop app needs a one-time migration with the command above. It is replaced with a fresh local menu-bar build at the same location; the dashboard opens in your browser. Source-installed 0.2.1 and later update themselves from source.
+Source builds remain ad-hoc signed and may require renewed Input Monitoring approval. Choose **Updates → Restart TypeGrid** if macOS requests a relaunch. Stable Developer ID signing is needed for permission continuity; no permission resets or TCC modifications are performed.
 
 ## Pairing and recovery
 
@@ -35,7 +33,7 @@ The installer handles pairing and startup automatically; the commands above are 
 
 ## Permissions and startup
 
-System Settings → Privacy & Security → Input Monitoring → add **TypeGrid.app** from Applications (use Command-Shift-G in the file picker). The installer creates `/Applications/TypeGrid.app` (or `~/Applications/TypeGrid.app` if the system Applications folder is not writable). Select that app and allow access. The agent retries every five seconds. If macOS requires a relaunch, rerun the same installer command. The CLI is a symlink to the executable inside the app.
+System Settings → Privacy & Security → Input Monitoring → add **TypeGrid.app** from Applications (use Command-Shift-G in the file picker). The installer creates `/Applications/TypeGrid.app` (or `~/Applications/TypeGrid.app` if the system Applications folder is not writable). Select that app and allow access. The agent retries every five seconds. If macOS requires a relaunch, use **Updates → Restart TypeGrid** or `typegrid restart`. The CLI is a symlink to the executable inside the app.
 
 `typegrid start` writes `~/Library/LaunchAgents/dev.typegrid.agent.plist`, starts the agent now, and launches at future login. The menu bar shows the dotted TypeGrid icon. Click it for today’s count, the dashboard, pause/resume, and quit. Pause lasts until restart; stop tracking persistently for the current login with `typegrid stop`. Quit is respected (no KeepAlive restart loop); it will start at the next login while the plist remains.
 
@@ -80,3 +78,30 @@ displays; Goals offers a progress visibility toggle and Edit daily goals. These
 preferences survive restarts and do not pause counting. If every display is
 hidden, a TypeGrid icon keeps the menu accessible. Turn off goals from Edit goals
 on the dashboard. Automatic updates continue using your existing preference.
+
+## Updates (v0.2.3 and later)
+
+Click or right-click TypeGrid in the menu bar and choose **Updates → Check for updates…**, then **Update and restart**. Or run:
+
+```sh
+typegrid update          # install the newest stable release and relaunch
+typegrid update --check  # check without changing anything
+```
+
+If `~/.local/bin` is not on your PATH, use `~/.local/bin/typegrid update`.
+
+**Automatically check for updates** is on by default and checks GitHub's public release metadata at most once per day, while TypeGrid runs. Turn it off in the same menu. Background checks do not show dialogs. They change the menu item when a new release is ready. No pairing credential, counts, or activity information are sent to GitHub.
+
+**Install signed updates automatically** is off by default. When enabled, TypeGrid installs only Developer ID signed, notarized releases. Source releases still require a manual update. Turning off automatic checks also turns off automatic installation.
+
+The updater verifies the selected archive's checksum, prepares it before stopping tracking, preserves the installed app location and CLI link, saves counters on orderly shutdown, and restarts automatically. Pairing, profile visibility, coding integrations, and queued totals are retained. If replacement or relaunch fails, it attempts to restore the previous app. Menu updates write build/error output to `~/Library/Application Support/TypeGrid/update.log`; no activity or credentials are logged. An interrupted update can be retried; stale updater locks are reclaimed.
+
+### Input Monitoring and code signing
+
+Current source builds use an ad-hoc signature. A rebuild can change the identity macOS associates with Input Monitoring, so macOS may still require consent again. TypeGrid does not reset TCC, change the permission database, weaken signature requirements, or bypass macOS consent.
+
+To retain permissions across production updates, releases need a stable **Developer ID Application** signing identity. The signed release packager is ready, but signed distribution requires an Apple Developer Program membership and notarization setup. Until those releases are published, manual updates and automatic checks work; unattended source installation is deliberately unavailable. Moving from an old ad-hoc build to the first signed build may require one last permission approval. Subsequent same-team signed releases are designed to preserve that identity, subject to macOS policy.
+
+Existing v0.2.0 and earlier installations do not contain the updater. They must use the original installer once to receive v0.2.3; subsequent updates use the menu or `typegrid update`. If a stale old permission entry blocks counting during that migration, remove the old TypeGrid entry and add the installed app again once.
+
+v0.2.1 and v0.2.2 can receive this release through their existing source updater. The legacy staging contract is preserved for that transition. Explicit automatic-update choices carry forward: a disabled preference stays disabled; an enabled preference enables checks and future signed automatic installation. Source installation remains manual after this release. Daily goals and menu visibility choices are unchanged.
